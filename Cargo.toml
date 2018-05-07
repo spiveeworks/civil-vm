@@ -1,0 +1,6 @@
+[package]
+name = "civil-vm"
+version = "0.1.0"
+authors = ["SpiveeWorks <spiveehere@gmail.com>"]
+
+[dependencies]
