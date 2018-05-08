@@ -1,6 +1,7 @@
 extern crate totem_cell;
 
 pub mod data;
+pub mod game;
 pub mod programs;
 
 pub mod prelude {
