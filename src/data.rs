@@ -1,6 +1,7 @@
 use prelude::*;
 use programs;
 
+// we could use a union
 pub enum Field {
     Integer(i64),  // for numbers with conservation, and C-enums, and indeces
     Real(f64),  // for any other kind of number
