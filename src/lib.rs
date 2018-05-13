@@ -16,10 +16,5 @@ pub mod prelude {
         ::std::rc::Rc::new(Cell::new(val))
     }
 
-
-    pub fn heap<T: 'static>(val: T) -> &'static T {
-        let as_box = Box::new(val);
-        let as_ptr = Box::into_raw(as_box);
-        unsafe { &*as_ptr }
-    }
+    pub type Dict<T> = ::std::collections::HashMap<String, T>;
 }

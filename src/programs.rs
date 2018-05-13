@@ -1,15 +1,17 @@
+use prelude::*;
+
 use data;
 use game;
 
 pub enum TableTerm {
-    Action(&'static Action, usize),
+    Action(Action),
 }
 
 pub struct Table {
-    terms: Vec<TableTerm>,
+    terms: Dict<TableTerm>,
 }
 
-type Action = [Statement];
+type Action = Vec<Statement>;
 
 pub enum Statement {
     Debug(String),
