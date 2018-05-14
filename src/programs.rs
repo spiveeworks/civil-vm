@@ -34,6 +34,7 @@ pub enum Statement {
         terms: Dict<String>,
         wait: Option<f64>,
     },
+    CancelWait,
 }
 
 fn get_action<'a>(
@@ -48,7 +49,7 @@ fn get_action<'a>(
     table.terms[action_name].action()
 }
 
-pub fn execute(
+pub fn execute_reaction(
     totem: &mut Totem,
     game: &mut game::Game,
     types: &Dict<data::EntityType>,
@@ -57,75 +58,113 @@ pub fn execute(
     table_name: String,
     action_name: String,
 
-    mut vars: Dict<data::Field>
+    mut vars: Dict<data::Field>,
 ) {
+    let mut has_state = true;
+
+
     // current continuation
-    let mut cc = Some((entity, table_name, action_name));
+    let mut cc = None;
 
-    loop {
-        let (entity, table_name, action_name) =
-            cc.take().unwrap();
+    let type_name = {
+        let entity = entity.borrow(totem);
+        entity.type_name.clone()
+    };
 
-        let entity_type= {
-            let entity = entity.borrow(totem);
-            entity.type_name.clone()
-        };
+    let code = get_action(types, &type_name, &table_name, &action_name);
+    let mut pc = 0;
 
-        let code = get_action(types, &entity_type, &table_name, &action_name);
-        let mut pc = 0;
+    while cc.is_none() {
+        match code[pc] {
+            Statement::Debug(ref to_print) => {
+                println!("Debug: {}", to_print);
+            },
+            Statement::ExecEntity {
+                ref ent_name,
+                ref action_name,
+                ref args,
+            } => {
+                {
+                    let entity_ref = vars[ent_name].entity();
 
-        while cc.is_none() {
-            match code[pc] {
-                Statement::Debug(ref to_print) => {
-                    println!("Debug: {}", to_print);
-                },
-                Statement::ExecEntity {
-                    ref ent_name,
-                    ref action_name,
-                    ref args,
-                } => {
-                    {
-                        let entity_ref = vars[ent_name].entity();
+                    let entity = Strong::clone(&entity_ref.data);
+                    let table_name = entity_ref.table.clone();
+                    let action_name = action_name.clone();
 
-                        let entity = Strong::clone(&entity_ref.data);
-                        let table_name = entity_ref.table.clone();
-                        let action_name = action_name.clone();
+                    cc = Some((entity, table_name, action_name));
+                }
 
-                        cc = Some((entity, table_name, action_name));
+                vars.retain(|k, _| args.contains(k));
+            },
+            Statement::State {
+                ref name,
+                ref terms,
+                wait,
+            } => {
+                let data = extract(&mut vars, terms);
+                let event = {
+                    if let Some(time) = wait {
+                        unimplemented!();
+                    } else {
+                        None
                     }
+                };
 
-                    vars.retain(|k, _| args.contains(k));
-                },
-                Statement::State {
-                    ref name,
-                    ref terms,
-                    wait,
-                } => {
-                    let data = extract(&mut vars, terms);
-                    let event = {
-                        if let Some(time) = wait {
-                            unimplemented!();
-                        } else {
-                            None
-                        }
-                    };
+                let state_name = name.clone();
 
-                    let state_name = name.clone();
+                let entity = entity.borrow_mut(totem);
 
-                    let entity = entity.borrow_mut(totem);
+                entity.table_name = table_name;
+                entity.action_name = action_name;
+                entity.state_name = state_name;
+                entity.data = data;
+                entity.event = event;
 
-                    entity.table_name = table_name;
-                    entity.action_name = action_name;
-                    entity.state_name = state_name;
-                    entity.data = data;
-                    entity.event = event;
+                has_state = true;
+                break;
+            },
+            Statement::CancelWait => {
+                let entity = entity.borrow_mut(totem);
+                let event = entity.event.take();
+                if let Some(event) = event {
+                    unimplemented!();
+                }
 
-                    break;
-                },
-            }
+                entity.data = Dict::new();
 
-            pc += 1;
+                has_state = false;
+            },
         }
+
+        pc += 1;
+    }
+
+    if has_state {
+        if pc != code.len() {
+            println!("Warning: Code after external call will not be executed
+without creating a new entity state");
+        }
+    } else if let Statement::State {
+        ref name,
+        ref terms,
+        wait,
+    } = code[pc] {
+        // interpret new state
+        unimplemented!();
+    } else {
+        panic!("Tried to exit without resetting state");
+    }
+
+    if let Some((entity, table_name, action_name)) = cc {
+        execute_reaction(
+            totem,
+            game,
+            types,
+            entity,
+            table_name,
+            action_name,
+            vars
+        );
     }
 }
 
