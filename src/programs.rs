@@ -29,6 +29,11 @@ pub enum Statement {
         action_name: String,
         args: Vec<String>,
     },
+    State {
+        name: String,
+        terms: Dict<String>,
+        wait: Option<f64>,
+    },
 }
 
 fn get_action<'a>(
@@ -58,7 +63,7 @@ pub fn execute(
     let mut cc = Some((entity, table_name, action_name));
 
     loop {
-        let (entity, table, action) =
+        let (entity, table_name, action_name) =
             cc.take().unwrap();
 
         let entity_type= {
@@ -66,7 +71,7 @@ pub fn execute(
             entity.type_name.clone()
         };
 
-        let code = get_action(types, &entity_type, &table, &action);
+        let code = get_action(types, &entity_type, &table_name, &action_name);
         let mut pc = 0;
 
         while cc.is_none() {
@@ -91,9 +96,48 @@ pub fn execute(
 
                     vars.retain(|k, _| args.contains(k));
                 },
+                Statement::State {
+                    ref name,
+                    ref terms,
+                    wait,
+                } => {
+                    let data = extract(&mut vars, terms);
+                    let event = {
+                        if let Some(time) = wait {
+                            unimplemented!();
+                        } else {
+                            None
+                        }
+                    };
+
+                    let state_name = name.clone();
+
+                    let entity = entity.borrow_mut(totem);
+
+                    entity.table_name = table_name;
+                    entity.action_name = action_name;
+                    entity.state_name = state_name;
+                    entity.data = data;
+                    entity.event = event;
+
+                    break;
+                },
             }
 
             pc += 1;
         }
     }
 }
+
+fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
+    let mut result = Dict::with_capacity(names.len());
+    for (new, old) in names {
+        let name = new.clone();
+        let val = vals
+            .remove(old)
+            .expect("Term not available for new state");
+        result.insert(name, val);
+    }
+    result
+}
+

@@ -39,15 +39,15 @@ pub type EntityType = Dict<programs::Table>;
 
 pub struct EntityData {
     // for cancelling the current wait timer
-    event: Option<()>,
+    pub event: Option<()>,
 
     // path to current code execution point
     pub type_name: String,
-    table_name: String,
-    action_name: String,
-    state_name: String,
+    pub table_name: String,
+    pub action_name: String,
+    pub state_name: String,
 
-    data: Data,
+    pub data: Data,
 }
 
 pub struct EntityRef {
