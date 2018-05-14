@@ -4,8 +4,8 @@ use programs;
 // we could use a union
 pub enum Field {
     Num(f64),
-    Data(Data),
     Entity(EntityRef),
+    // Data(DataTerm),
     // Weak(WeakRef),
     // List(???),
 }
@@ -18,13 +18,6 @@ impl Field {
         }
     }
 
-    pub fn data(self: &Self) -> &Data {
-        match *self {
-            Field::Data(ref result) => result,
-            _ => panic!("Expected data"),
-        }
-    }
-
     pub fn entity(self: &Self) -> &EntityRef {
         match *self {
             Field::Entity(ref result) => result,
@@ -33,18 +26,27 @@ impl Field {
     }
 }
 
-pub struct Data {
-    variant: usize,
-    fields: Dict<Field>,
+/*
+struct DataTerm {
+    variant: String,
+    terms: Data,
 }
+*/
+
+pub type Data = Dict<Field>;
 
 pub type EntityType = Dict<programs::Table>;
 
 pub struct EntityData {
-    pub type_name: String,
+    // for cancelling the current wait timer
     event: Option<()>,
-    action: String,
-    state: String,
+
+    // path to current code execution point
+    pub type_name: String,
+    table_name: String,
+    action_name: String,
+    state_name: String,
+
     data: Data,
 }
 
