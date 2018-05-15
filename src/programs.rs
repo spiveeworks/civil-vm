@@ -101,27 +101,26 @@ pub fn execute_reaction(
                 ref terms,
                 wait,
             } => {
-                let data = extract(&mut vars, terms);
-                let event = {
-                    if let Some(time) = wait {
-                        unimplemented!();
-                    } else {
-                        None
-                    }
-                };
-
-                let state_name = name.clone();
+                if has_state {
+                    panic!("Tried to overwrite state without cancelling");
+                }
 
                 let entity = entity.borrow_mut(totem);
+                let state_name = name.clone();
 
-                entity.table_name = table_name;
-                entity.action_name = action_name;
-                entity.state_name = state_name;
-                entity.data = data;
-                entity.event = event;
+                update_state(
+                    entity,
+                    &mut vars,
+                    terms,
 
-                has_state = true;
-                break;
+                    table_name,
+                    action_name,
+                    state_name,
+
+                    wait,
+                );
+
+                return;
             },
             Statement::CancelWait => {
                 let entity = entity.borrow_mut(totem);
@@ -149,8 +148,20 @@ without creating a new entity state");
         ref terms,
         wait,
     } = code[pc] {
-        // interpret new state
-        unimplemented!();
+        let entity = entity.borrow_mut(totem);
+        let state_name = name.clone();
+
+        update_state(
+            entity,
+            &mut vars,
+            terms,
+
+            table_name,
+            action_name,
+            state_name,
+
+            wait,
+        );
     } else {
         panic!("Tried to exit without resetting state");
     }
@@ -166,6 +177,33 @@ without creating a new entity state");
             vars
         );
     }
+}
+
+fn update_state(
+    entity: &mut data::EntityData,
+    vars: &mut data::Data,
+    terms: &Dict<String>,
+
+    table_name: String,
+    action_name: String,
+    state_name: String,
+
+    wait: Option<f64>,
+) {
+    let data = extract(vars, terms);
+    let event = {
+        if let Some(time) = wait {
+            unimplemented!();
+        } else {
+            None
+        }
+    };
+
+    entity.table_name = table_name;
+    entity.action_name = action_name;
+    entity.state_name = state_name;
+    entity.data = data;
+    entity.event = event;
 }
 
 fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
