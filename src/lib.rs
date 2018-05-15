@@ -1,7 +1,20 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+extern crate totem_cell;
+
+pub mod data;
+pub mod game;
+pub mod programs;
+
+pub mod prelude {
+    pub use totem_cell::Totem;
+    pub type Cell<T> = ::totem_cell::TotemCell<T>;
+
+    pub type Strong<T> = ::std::rc::Rc<Cell<T>>;
+    pub type Weak<T> = ::std::rc::Weak<Cell<T>>;
+
+
+    pub fn strong<T>(val: T) -> Strong<T> where T: 'static {
+        ::std::rc::Rc::new(Cell::new(val))
     }
+
+    pub type Dict<T> = ::std::collections::HashMap<String, T>;
 }
