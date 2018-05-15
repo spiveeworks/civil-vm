@@ -218,3 +218,8 @@ fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
     result
 }
 
+
+struct Event {
+    entity: data::Entity,
+}
+

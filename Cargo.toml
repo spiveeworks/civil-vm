@@ -5,3 +5,4 @@ authors = ["SpiveeWorks <spiveehere@gmail.com>"]
 
 [dependencies]
 totem_cell = { "path" = "../totem_cell" }
+sulphate-lib = { "path" = "../sulphate" }

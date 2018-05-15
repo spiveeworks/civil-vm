@@ -1,8 +1,10 @@
+extern crate sulphate_lib;
 extern crate totem_cell;
 
 pub mod data;
 pub mod game;
 pub mod programs;
+pub mod time;
 
 pub mod prelude {
     pub use totem_cell::Totem;
