@@ -2,6 +2,7 @@ use prelude::*;
 
 use data;
 use game;
+use time;
 
 pub enum TableTerm {
     Action(Action),
@@ -32,7 +33,7 @@ pub enum Statement {
     State {
         name: String,
         terms: Dict<String>,
-        wait: Option<f64>,
+        wait: Option<Time>,
     },
     CancelWait,
 }
@@ -51,7 +52,7 @@ fn get_action<'a>(
 
 pub fn execute_reaction(
     totem: &mut Totem,
-    game: &mut game::Game,
+    event_queue: &mut time::EventQueue,
     types: &Dict<data::EntityType>,
 
     entity: Strong<data::EntityData>,
@@ -105,11 +106,13 @@ pub fn execute_reaction(
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let entity = entity.borrow_mut(totem);
                 let state_name = name.clone();
 
                 update_state(
-                    entity,
+                    totem,
+                    event_queue,
+
+                    &entity,
                     &mut vars,
                     terms,
 
@@ -125,8 +128,8 @@ pub fn execute_reaction(
             Statement::CancelWait => {
                 let entity = entity.borrow_mut(totem);
                 let event = entity.event.take();
-                if let Some(event) = event {
-                    unimplemented!();
+                if let Some(data::EventHandle(ref time, id)) = event {
+                    event_queue.cancel_event(time, id);
                 }
 
                 entity.data = Dict::new();
@@ -148,11 +151,13 @@ without creating a new entity state");
         ref terms,
         wait,
     } = code[pc] {
-        let entity = entity.borrow_mut(totem);
         let state_name = name.clone();
 
         update_state(
-            entity,
+            totem,
+            event_queue,
+
+            &entity,
             &mut vars,
             terms,
 
@@ -169,7 +174,7 @@ without creating a new entity state");
     if let Some((entity, table_name, action_name)) = cc {
         execute_reaction(
             totem,
-            game,
+            event_queue,
             types,
             entity,
             table_name,
@@ -180,7 +185,10 @@ without creating a new entity state");
 }
 
 fn update_state(
-    entity: &mut data::EntityData,
+    totem: &mut Totem,
+    event_queue: &mut time::EventQueue,
+
+    entity: &data::Entity,
     vars: &mut data::Data,
     terms: &Dict<String>,
 
@@ -188,16 +196,23 @@ fn update_state(
     action_name: String,
     state_name: String,
 
-    wait: Option<f64>,
+    wait: Option<Time>,
 ) {
     let data = extract(vars, terms);
     let event = {
         if let Some(time) = wait {
-            unimplemented!();
+            let absolute_time = event_queue.now() + time;
+            let event = Event {
+                entity: Strong::clone(entity),
+            };
+            let id = event_queue.enqueue_absolute(event, absolute_time);
+            Some(data::EventHandle(absolute_time, id))
         } else {
             None
         }
     };
+
+    let entity = entity.borrow_mut(totem);
 
     entity.table_name = table_name;
     entity.action_name = action_name;

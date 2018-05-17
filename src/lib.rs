@@ -7,6 +7,8 @@ pub mod programs;
 pub mod time;
 
 pub mod prelude {
+    pub use sulphate_lib::Time;
+
     pub use totem_cell::Totem;
     pub type Cell<T> = ::totem_cell::TotemCell<T>;
 
