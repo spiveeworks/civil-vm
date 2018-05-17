@@ -38,6 +38,8 @@ pub type Data = Dict<Field>;
 
 pub type EntityType = Dict<programs::Table>;
 
+pub type Entity = Strong<EntityData>;
+
 pub struct EntityData {
     // for cancelling the current wait timer
     pub event: Option<()>,

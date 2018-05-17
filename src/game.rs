@@ -1,5 +1,8 @@
 use prelude::*;
 
+use sulphate_lib::event_queue;
+
+use programs;
 use time;
 
 pub struct Game {
@@ -14,14 +17,14 @@ impl AsMut<time::EventQueue> for Game {
 }
 
 impl Game {
-    use sulphate_lib::event_queue::Simulation;
     pub fn invoke_next(self: &mut Self) {
+        use sulphate_lib::event_queue::Simulation;
         self.invoke_next();
     }
 }
 
-impl sulphate::GeneralEvent<game::Game> for programs::Event {
-    fn invoke(self: Self, game: &mut game::Game) {
+impl event_queue::GeneralEvent<Game> for programs::Event {
+    fn invoke(self: Self, game: &mut Game) {
         self.invoke(game);
     }
 }
