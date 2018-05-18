@@ -1,4 +1,5 @@
 use prelude::*;
+
 use programs;
 
 // we could use a union
@@ -37,14 +38,16 @@ pub type Data = Dict<Field>;
 
 pub type EntityType = Dict<programs::Table>;
 
+pub type Entity = Strong<EntityData>;
+
+pub struct EventHandle(pub Time, pub usize);
+
 pub struct EntityData {
     // for cancelling the current wait timer
-    pub event: Option<()>,
+    pub event: Option<EventHandle>,
 
-    // path to current code execution point
     pub type_name: String,
-    pub table_name: String,
-    pub action_name: String,
+    // purely for saving to file
     pub state_name: String,
 
     pub data: Data,

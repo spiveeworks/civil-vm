@@ -1,7 +1,10 @@
+use std::mem;
+
 use prelude::*;
 
 use data;
 use game;
+use time;
 
 pub enum TableTerm {
     Action(Action),
@@ -32,7 +35,7 @@ pub enum Statement {
     State {
         name: String,
         terms: Dict<String>,
-        wait: Option<f64>,
+        wait: Option<Time>,
     },
     CancelWait,
 }
@@ -49,9 +52,66 @@ fn get_action<'a>(
     table.terms[action_name].action()
 }
 
-pub fn execute_reaction(
+fn continue_action(
     totem: &mut Totem,
-    game: &mut game::Game,
+    event_queue: &mut time::EventQueue,
+    types: &Dict<data::EntityType>,
+
+    entity: Strong<data::EntityData>,
+    table_name: String,
+    action_name: String,
+    pc: usize,
+) {
+    let vars = {
+        let entity = entity.borrow_mut(totem);
+        entity.event = None;
+
+        mem::replace(&mut entity.data, Dict::new())
+    };
+    execute_action(
+        totem,
+        event_queue,
+        types,
+
+        entity,
+        table_name,
+        action_name,
+
+        vars,
+        pc,
+        false,
+    );
+}
+
+fn execute_reaction(
+    totem: &mut Totem,
+    event_queue: &mut time::EventQueue,
+    types: &Dict<data::EntityType>,
+
+    entity: Strong<data::EntityData>,
+    table_name: String,
+    action_name: String,
+
+    vars: Dict<data::Field>,
+) {
+    execute_action(
+        totem,
+        event_queue,
+        types,
+
+        entity,
+        table_name,
+        action_name,
+
+        vars,
+        0,
+        true,
+    );
+}
+
+pub fn execute_action(
+    totem: &mut Totem,
+    event_queue: &mut time::EventQueue,
     types: &Dict<data::EntityType>,
 
     entity: Strong<data::EntityData>,
@@ -59,10 +119,9 @@ pub fn execute_reaction(
     action_name: String,
 
     mut vars: Dict<data::Field>,
+    mut pc: usize,
+    mut has_state: bool,
 ) {
-    let mut has_state = true;
-
-
     // current continuation
     let mut cc = None;
 
@@ -72,7 +131,6 @@ pub fn execute_reaction(
     };
 
     let code = get_action(types, &type_name, &table_name, &action_name);
-    let mut pc = 0;
 
     while cc.is_none() {
         match code[pc] {
@@ -105,11 +163,13 @@ pub fn execute_reaction(
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let entity = entity.borrow_mut(totem);
                 let state_name = name.clone();
 
                 update_state(
-                    entity,
+                    totem,
+                    event_queue,
+
+                    &entity,
                     &mut vars,
                     terms,
 
@@ -117,6 +177,7 @@ pub fn execute_reaction(
                     action_name,
                     state_name,
 
+                    pc,
                     wait,
                 );
 
@@ -125,8 +186,8 @@ pub fn execute_reaction(
             Statement::CancelWait => {
                 let entity = entity.borrow_mut(totem);
                 let event = entity.event.take();
-                if let Some(event) = event {
-                    unimplemented!();
+                if let Some(data::EventHandle(ref time, id)) = event {
+                    event_queue.cancel_event(time, id);
                 }
 
                 entity.data = Dict::new();
@@ -148,11 +209,13 @@ without creating a new entity state");
         ref terms,
         wait,
     } = code[pc] {
-        let entity = entity.borrow_mut(totem);
         let state_name = name.clone();
 
         update_state(
-            entity,
+            totem,
+            event_queue,
+
+            &entity,
             &mut vars,
             terms,
 
@@ -160,6 +223,7 @@ without creating a new entity state");
             action_name,
             state_name,
 
+            pc,
             wait,
         );
     } else {
@@ -169,7 +233,7 @@ without creating a new entity state");
     if let Some((entity, table_name, action_name)) = cc {
         execute_reaction(
             totem,
-            game,
+            event_queue,
             types,
             entity,
             table_name,
@@ -180,7 +244,10 @@ without creating a new entity state");
 }
 
 fn update_state(
-    entity: &mut data::EntityData,
+    totem: &mut Totem,
+    event_queue: &mut time::EventQueue,
+
+    entity: &data::Entity,
     vars: &mut data::Data,
     terms: &Dict<String>,
 
@@ -188,19 +255,26 @@ fn update_state(
     action_name: String,
     state_name: String,
 
-    wait: Option<f64>,
+    pc: usize,
+    wait: Option<Time>,
 ) {
     let data = extract(vars, terms);
     let event = {
         if let Some(time) = wait {
-            unimplemented!();
+            let entity = Strong::clone(entity);
+            let event = Event { entity, table_name, action_name, pc };
+
+            let absolute_time = event_queue.now() + time;
+            let id = event_queue.enqueue_absolute(event, absolute_time);
+
+            Some(data::EventHandle(absolute_time, id))
         } else {
             None
         }
     };
 
-    entity.table_name = table_name;
-    entity.action_name = action_name;
+    let entity = entity.borrow_mut(totem);
+
     entity.state_name = state_name;
     entity.data = data;
     entity.event = event;
@@ -218,3 +292,26 @@ fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
     result
 }
 
+
+pub struct Event {
+    entity: data::Entity,
+
+    table_name: String,
+    action_name: String,
+    pc: usize,
+}
+
+impl Event {
+    pub fn invoke(self: Self, game: &mut game::Game) {
+        continue_action(
+            &mut game.totem,
+            &mut game.event_queue,
+            &mut game.types,
+            self.entity,
+
+            self.table_name,
+            self.action_name,
+            self.pc,
+        );
+    }
+}
