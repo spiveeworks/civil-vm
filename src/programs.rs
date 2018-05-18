@@ -6,6 +6,12 @@ use data;
 use game;
 use time;
 
+// for the parser >:P
+pub enum Item {
+    Action(Action),
+    Table(Vec<String>),
+}
+
 pub enum TableTerm {
     Action(Action),
 }
@@ -20,10 +26,10 @@ impl TableTerm {
 }
 
 pub struct Table {
-    terms: Dict<TableTerm>,
+    pub terms: Dict<TableTerm>,
 }
 
-type Action = Vec<Statement>;
+pub type Action = Vec<Statement>;
 
 pub enum Statement {
     Debug(String),
