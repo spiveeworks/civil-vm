@@ -300,11 +300,11 @@ fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
 
 
 pub struct Event {
-    entity: data::Entity,
+    pub entity: data::Entity,
 
-    table_name: String,
-    action_name: String,
-    pc: usize,
+    pub table_name: String,
+    pub action_name: String,
+    pub pc: usize,
 }
 
 impl Event {
