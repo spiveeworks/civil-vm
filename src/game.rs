@@ -10,7 +10,7 @@ pub struct Game {
     pub totem: Totem,
     pub event_queue: time::EventQueue,
     pub types: Dict<data::EntityType>,
-    _root: Strong<()>,
+    _root: data::Entity,
 }
 
 // purely for the Simulate trait, do not use
