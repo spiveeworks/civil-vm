@@ -30,7 +30,7 @@ pub enum Statement {
     ExecEntity {
         ent_name: String,
         action_name: String,
-        args: Vec<String>,
+        args: Dict<String>,
     },
     State {
         name: String,
@@ -152,7 +152,7 @@ pub fn execute_action(
                     cc = Some((entity, table_name, action_name));
                 }
 
-                vars.retain(|k, _| args.contains(k));
+                vars = extract(&mut vars, args);
             },
             Statement::State {
                 ref name,
