@@ -3,6 +3,7 @@ extern crate totem_cell;
 
 pub mod data;
 pub mod game;
+pub mod parser;
 pub mod programs;
 pub mod time;
 

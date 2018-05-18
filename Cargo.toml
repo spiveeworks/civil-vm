@@ -3,6 +3,11 @@ name = "civil-vm"
 version = "0.1.0"
 authors = ["SpiveeWorks <spiveehere@gmail.com>"]
 
+[build-dependencies]
+lalrpop = "0.15.2"
+
 [dependencies]
+lalrpop-util = "0.15.2"
+regex = "0.2.1"
 totem_cell = { "path" = "../totem_cell" }
 sulphate-lib = { git = "https://github.com/spiveeworks/sulphate" }
