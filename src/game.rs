@@ -10,7 +10,7 @@ pub struct Game {
     pub totem: Totem,
     pub event_queue: time::EventQueue,
     pub types: Dict<data::EntityType>,
-    pub _root: data::Entity,
+    pub root: data::Entity,
 }
 
 // purely for the Simulate trait, do not use
@@ -23,6 +23,20 @@ impl AsMut<time::EventQueue> for Game {
 impl Game {
     pub fn invoke_next(self: &mut Self) {
         event_queue::Simulation::invoke_next(self);
+    }
+
+    pub fn run(self: &mut Self) {
+        programs::execute_init(
+            &mut self.totem,
+            &mut self.event_queue,
+            &mut self.types,
+            Strong::clone(&self.root),
+        );
+
+        while !self.event_queue.is_empty() {
+            self.invoke_next();
+        }
+        println!("Nothing happened.");
     }
 }
 

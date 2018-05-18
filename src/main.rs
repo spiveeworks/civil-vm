@@ -4,11 +4,10 @@ use std::fs;
 
 use civil_vm::prelude::*;
 
+use civil_vm::data::EntityData;
 use civil_vm::data::EntityType;
-use civil_vm::data::Entity;
 use civil_vm::game::Game;
 use civil_vm::parser::TypeParser;
-use civil_vm::programs::Event;
 use civil_vm::time::EventQueue;
 
 fn get_types() -> Dict<EntityType> {
@@ -34,37 +33,16 @@ fn get_types() -> Dict<EntityType> {
     types
 }
 
-fn initialize(
-    event_queue: &mut EventQueue,
-    now: Time,
-) -> Entity {
-    use civil_vm::data::EntityData;
-
-    let entity = EntityData::new("Root".into());
-
-    let init = Event {
-        entity: Strong::clone(&entity),
-        action_name: "init".into(),
-        table_name: "Root".into(),
-        pc: 0,
-    };
-    event_queue.enqueue_absolute(init, now);
-
-    entity
-}
-
 fn main() {
     let now = Time::try_from(0.0).unwrap();
     // only do this once ok?
     let totem = unsafe { Totem::new() };
-    let mut event_queue = EventQueue::new(now);
+    let event_queue = EventQueue::new(now);
     let types = get_types();
 
-    let root = initialize(&mut event_queue, now);
+    let root = EntityData::new("Root".into());
 
-    let mut game = Game { totem, event_queue, types, _root: root };
+    let mut game = Game { totem, event_queue, types, root };
 
-    loop {
-        game.invoke_next();
-    }
+    game.run();
 }

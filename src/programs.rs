@@ -58,6 +58,24 @@ fn get_action<'a>(
     table.terms[action_name].action()
 }
 
+pub fn execute_init(
+        totem: &mut Totem,
+        event_queue: &mut time::EventQueue,
+        types: &Dict<data::EntityType>,
+
+        entity: Strong<data::EntityData>,
+) {
+    execute_reaction(
+        totem,
+        event_queue,
+        types,
+        entity,
+        "Root".into(),
+        "init".into(),
+        Dict::new(),
+    );
+}
+
 fn continue_action(
     totem: &mut Totem,
     event_queue: &mut time::EventQueue,
@@ -138,7 +156,7 @@ pub fn execute_action(
 
     let code = get_action(types, &type_name, &table_name, &action_name);
 
-    while cc.is_none() {
+    while pc < code.len() && cc.is_none() {
         match code[pc] {
             Statement::Debug(ref to_print) => {
                 println!("Debug: {}", to_print);
@@ -210,11 +228,11 @@ pub fn execute_action(
             println!("Warning: Code after external call will not be executed
 without creating a new entity state");
         }
-    } else if let Statement::State {
+    } else if let Some(&Statement::State {
         ref name,
         ref terms,
         wait,
-    } = code[pc] {
+    }) = code.get(pc) {
         let state_name = name.clone();
 
         update_state(
