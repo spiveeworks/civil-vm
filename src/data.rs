@@ -53,6 +53,16 @@ pub struct EntityData {
     pub data: Data,
 }
 
+impl EntityData {
+    pub fn new(type_name: String) -> Entity {
+        let data = Dict::new();
+        let state_name = "EMPTY".into();
+        let event = None;
+        let entity = EntityData { event, type_name, state_name, data };
+        strong(entity)
+    }
+}
+
 pub struct EntityRef {
     pub table: String,
     pub data: Strong<EntityData>,

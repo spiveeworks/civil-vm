@@ -1,0 +1,63 @@
+use prelude::*;
+
+use data;
+use programs;
+
+grammar;
+
+pub Type: data::EntityType = {
+    <Item*> => {
+        let items = <>;
+        let mut table_defs = Vec::new();
+        let mut actions = Dict::new();
+        for (name, item) in items {
+            use programs::Item::*;
+            match item {
+                Table(table_def) => {
+                    table_defs.push((name, table_def));
+                },
+                Action(action) => {
+                    actions.insert(name, action);
+                },
+            }
+        }
+
+        let mut tables = Dict::new();
+        for (name, table_def) in table_defs {
+            let mut table_terms = Dict::new();
+            for name in table_def {
+                let action = actions.remove(&name)
+                    .expect("Undefined action");
+                let table_term = programs::TableTerm::Action(action);
+                table_terms.insert(name, table_term);
+            }
+            let table = programs::Table {
+                terms: table_terms,
+            };
+            tables.insert(name, table);
+        }
+        tables
+    },
+};
+
+Item: (String, programs::Item) = {
+    Table => (<>.0, programs::Item::Table(<>.1)),
+    Action => (<>.0, programs::Item::Action(<>.1)),
+};
+
+Table: (String, Vec<String>) = {
+    <Ident> "::" "Table" "{" <Ident*> "}" => (<>),
+};
+
+Action: (String, programs::Action) = {
+    <Ident> "::" "Action" "{" <Statement*> "}" => (<>),
+};
+
+Statement: programs::Statement = {
+    "cancel;" => programs::Statement::CancelWait,
+};
+
+
+Ident: String = {
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
+};
