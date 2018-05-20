@@ -3,28 +3,85 @@ use item;
 
 grammar;
 
+//
+//  Items
+//
+
 pub Type: item::EntityType = {
     <Item*> => item::link(<>),
 };
 
-Item: (String, item::Item) = {
-    Table => (<>.0, item::Item::Table(<>.1)),
-    Action => (<>.0, item::Item::Action(<>.1)),
+Item: (String, table::Item) = {
+    TableSignature => (<>.0, programs::Item::TableSignature(<>.1)),
+    Initializer => (<>.0, programs::Item::Initializer(<>.1)),
 };
 
-Table: (String, Vec<String>) = {
-    <Ident> "::" "Table" "{" <Ident*> "}" => (<>),
+
+//
+//  Tables
+//
+
+TableSignature: (String, Dict<table::SignatureTerm>) = {
+    <name: Ident> ":=" "table" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+        (name, terms.into_iter().collect()),
 };
 
-Action: (String, algorithm::Action) = {
-    <Ident> "::" "Action" "{" <Statement*> "}" => (<>),
+TableSignatureTerm: (String, table::SignatureTerm) = {
+    <Ident> ":" <TermSignature>,
 };
 
-Statement: algorithm::Statement = {
+TermSignature: table::SignatureTerm = {
+    "initializer" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Initializer(<>),
+};
+
+DataType: data::FieldType = {
+    "Num" => data::FieldType::Num,
+};
+
+TableInstance: (String, String, Vec<(String, String)>) = {
+    <Ident> ":=" <Ident> "{" <Comma<Assignment>> "}",
+};
+
+
+//
+//  Algorithms
+//
+
+Initializer: (String, programs::Algorithm) = {
+    <Ident> ":=" "initializer" "{" <Algorithm> "}",
+};
+
+Algorithm: algorithm::Algorithm = {
+    <Statement*>,
+};
+
+Statement: programs::Statement = {
     "cancel;" => algorithm::Statement::CancelWait,
 };
 
 
+//
+//  General Purpose Things
+//
+
+Assignment: (String, String) = {
+    <Ident> "=" <Ident>
+};
+
 Ident: String = {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
+};
+
+// taken directly from
+// http://lalrpop.github.io/lalrpop/tutorial/007_macros.html
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
 };

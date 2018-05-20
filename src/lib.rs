@@ -10,19 +10,25 @@ pub mod parser;
 pub mod table;
 
 pub mod prelude {
+    // Units (just Time)
     pub use sulphate_lib::Time;
 
+
+    // Cell
     pub use totem_cell::Totem;
     pub type Cell<T> = ::totem_cell::TotemCell<T>;
 
+
+    // Rc
     pub type Strong<T> = ::std::rc::Rc<Cell<T>>;
     pub type Weak<T> = ::std::rc::Weak<Cell<T>>;
-
 
     pub fn strong<T>(val: T) -> Strong<T> where T: 'static {
         ::std::rc::Rc::new(Cell::new(val))
     }
 
+
+    // HashMap
     pub type Dict<T> = ::std::collections::HashMap<String, T>;
 
     pub fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
@@ -36,5 +42,4 @@ pub mod prelude {
         }
         result
     }
-
 }

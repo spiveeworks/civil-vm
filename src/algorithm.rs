@@ -6,8 +6,7 @@ use data;
 use event;
 use item;
 
-
-pub type Action = Vec<Statement>;
+pub type Algorithm = Vec<Statement>;
 
 pub enum Statement {
     Debug(String),
