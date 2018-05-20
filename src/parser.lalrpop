@@ -1,60 +1,27 @@
-use prelude::*;
-
-use data;
-use programs;
+use algorithm;
+use item;
 
 grammar;
 
-pub Type: data::EntityType = {
-    <Item*> => {
-        let items = <>;
-        let mut table_defs = Vec::new();
-        let mut actions = Dict::new();
-        for (name, item) in items {
-            use programs::Item::*;
-            match item {
-                Table(table_def) => {
-                    table_defs.push((name, table_def));
-                },
-                Action(action) => {
-                    actions.insert(name, action);
-                },
-            }
-        }
-
-        let mut tables = Dict::new();
-        for (name, table_def) in table_defs {
-            let mut table_terms = Dict::new();
-            for name in table_def {
-                let action = actions.remove(&name)
-                    .expect("Undefined action");
-                let table_term = programs::TableTerm::Action(action);
-                table_terms.insert(name, table_term);
-            }
-            let table = programs::Table {
-                terms: table_terms,
-            };
-            tables.insert(name, table);
-        }
-        tables
-    },
+pub Type: item::EntityType = {
+    <Item*> => item::link(<>),
 };
 
-Item: (String, programs::Item) = {
-    Table => (<>.0, programs::Item::Table(<>.1)),
-    Action => (<>.0, programs::Item::Action(<>.1)),
+Item: (String, item::Item) = {
+    Table => (<>.0, item::Item::Table(<>.1)),
+    Action => (<>.0, item::Item::Action(<>.1)),
 };
 
 Table: (String, Vec<String>) = {
     <Ident> "::" "Table" "{" <Ident*> "}" => (<>),
 };
 
-Action: (String, programs::Action) = {
+Action: (String, algorithm::Action) = {
     <Ident> "::" "Action" "{" <Statement*> "}" => (<>),
 };
 
-Statement: programs::Statement = {
-    "cancel;" => programs::Statement::CancelWait,
+Statement: algorithm::Statement = {
+    "cancel;" => algorithm::Statement::CancelWait,
 };
 
 

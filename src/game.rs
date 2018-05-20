@@ -2,20 +2,21 @@ use prelude::*;
 
 use sulphate_lib::event_queue;
 
+use algorithm;
 use data;
-use programs;
-use time;
+use event;
+use item;
 
 pub struct Game {
     pub totem: Totem,
-    pub event_queue: time::EventQueue,
-    pub types: Dict<data::EntityType>,
+    pub event_queue: event::EventQueue,
+    pub types: Dict<item::EntityType>,
     pub root: data::Entity,
 }
 
 // purely for the Simulate trait, do not use
-impl AsMut<time::EventQueue> for Game {
-    fn as_mut(self: &mut Self) -> &mut time::EventQueue {
+impl AsMut<event::EventQueue> for Game {
+    fn as_mut(self: &mut Self) -> &mut event::EventQueue {
         &mut self.event_queue
     }
 }
@@ -26,7 +27,7 @@ impl Game {
     }
 
     pub fn run(self: &mut Self) {
-        programs::execute_init(
+        algorithm::execute_init(
             &mut self.totem,
             &mut self.event_queue,
             &mut self.types,
@@ -37,11 +38,5 @@ impl Game {
             self.invoke_next();
         }
         println!("Nothing happened.");
-    }
-}
-
-impl event_queue::GeneralEvent<Game> for programs::Event {
-    fn invoke(self: Self, game: &mut Game) {
-        programs::Event::invoke(self, game);
     }
 }

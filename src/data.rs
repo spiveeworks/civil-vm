@@ -1,6 +1,7 @@
 use prelude::*;
 
-use programs;
+use event;
+
 
 // we could use a union
 pub enum Field {
@@ -36,15 +37,11 @@ struct DataTerm {
 
 pub type Data = Dict<Field>;
 
-pub type EntityType = Dict<programs::Table>;
-
 pub type Entity = Strong<EntityData>;
-
-pub struct EventHandle(pub Time, pub usize);
 
 pub struct EntityData {
     // for cancelling the current wait timer
-    pub event: Option<EventHandle>,
+    pub event: Option<event::EventHandle>,
 
     pub type_name: String,
     // purely for saving to file

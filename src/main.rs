@@ -5,10 +5,10 @@ use std::fs;
 use civil_vm::prelude::*;
 
 use civil_vm::data::EntityData;
-use civil_vm::data::EntityType;
+use civil_vm::item::EntityType;
 use civil_vm::game::Game;
 use civil_vm::parser::TypeParser;
-use civil_vm::time::EventQueue;
+use civil_vm::event::EventQueue;
 
 fn get_types() -> Dict<EntityType> {
     let parser = TypeParser::new();

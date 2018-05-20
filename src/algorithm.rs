@@ -3,31 +3,9 @@ use std::mem;
 use prelude::*;
 
 use data;
-use game;
-use time;
+use event;
+use item;
 
-// for the parser >:P
-pub enum Item {
-    Action(Action),
-    Table(Vec<String>),
-}
-
-pub enum TableTerm {
-    Action(Action),
-}
-
-impl TableTerm {
-    pub fn action(self: &Self) -> &Action {
-        match *self {
-            TableTerm::Action(ref result) => result,
-            // _ => panic!("Expected action"),
-        }
-    }
-}
-
-pub struct Table {
-    pub terms: Dict<TableTerm>,
-}
 
 pub type Action = Vec<Statement>;
 
@@ -47,7 +25,7 @@ pub enum Statement {
 }
 
 fn get_action<'a>(
-    types: &'a Dict<data::EntityType>,
+    types: &'a Dict<item::EntityType>,
 
     entity_type_name: &String,
     table_name: &String,
@@ -59,11 +37,11 @@ fn get_action<'a>(
 }
 
 pub fn execute_init(
-        totem: &mut Totem,
-        event_queue: &mut time::EventQueue,
-        types: &Dict<data::EntityType>,
+    totem: &mut Totem,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
 
-        entity: Strong<data::EntityData>,
+    entity: Strong<data::EntityData>,
 ) {
     execute_reaction(
         totem,
@@ -76,10 +54,10 @@ pub fn execute_init(
     );
 }
 
-fn continue_action(
+pub fn continue_action(
     totem: &mut Totem,
-    event_queue: &mut time::EventQueue,
-    types: &Dict<data::EntityType>,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
 
     entity: Strong<data::EntityData>,
     table_name: String,
@@ -109,8 +87,8 @@ fn continue_action(
 
 fn execute_reaction(
     totem: &mut Totem,
-    event_queue: &mut time::EventQueue,
-    types: &Dict<data::EntityType>,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
 
     entity: Strong<data::EntityData>,
     table_name: String,
@@ -135,8 +113,8 @@ fn execute_reaction(
 
 pub fn execute_action(
     totem: &mut Totem,
-    event_queue: &mut time::EventQueue,
-    types: &Dict<data::EntityType>,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
 
     entity: Strong<data::EntityData>,
     table_name: String,
@@ -210,7 +188,7 @@ pub fn execute_action(
             Statement::CancelWait => {
                 let entity = entity.borrow_mut(totem);
                 let event = entity.event.take();
-                if let Some(data::EventHandle(ref time, id)) = event {
+                if let Some(event::EventHandle(ref time, id)) = event {
                     event_queue.cancel_event(time, id);
                 }
 
@@ -269,7 +247,7 @@ without creating a new entity state");
 
 fn update_state(
     totem: &mut Totem,
-    event_queue: &mut time::EventQueue,
+    event_queue: &mut event::EventQueue,
 
     entity: &data::Entity,
     vars: &mut data::Data,
@@ -286,12 +264,12 @@ fn update_state(
     let event = {
         if let Some(time) = wait {
             let entity = Strong::clone(entity);
-            let event = Event { entity, table_name, action_name, pc };
+            let event = event::Event { entity, table_name, action_name, pc };
 
             let absolute_time = event_queue.now() + time;
             let id = event_queue.enqueue_absolute(event, absolute_time);
 
-            Some(data::EventHandle(absolute_time, id))
+            Some(event::EventHandle(absolute_time, id))
         } else {
             None
         }
@@ -304,38 +282,3 @@ fn update_state(
     entity.event = event;
 }
 
-fn extract<T>(vals: &mut Dict<T>, names: &Dict<String>) -> Dict<T> {
-    let mut result = Dict::with_capacity(names.len());
-    for (new, old) in names {
-        let name = new.clone();
-        let val = vals
-            .remove(old)
-            .expect("Term not available for new state");
-        result.insert(name, val);
-    }
-    result
-}
-
-
-pub struct Event {
-    pub entity: data::Entity,
-
-    pub table_name: String,
-    pub action_name: String,
-    pub pc: usize,
-}
-
-impl Event {
-    pub fn invoke(self: Self, game: &mut game::Game) {
-        continue_action(
-            &mut game.totem,
-            &mut game.event_queue,
-            &mut game.types,
-            self.entity,
-
-            self.table_name,
-            self.action_name,
-            self.pc,
-        );
-    }
-}
