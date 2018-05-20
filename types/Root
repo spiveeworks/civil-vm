@@ -1,4 +1,0 @@
-
-Root :: Table { init }
-
-init :: Action {}
