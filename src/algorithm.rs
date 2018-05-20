@@ -23,18 +23,6 @@ pub enum Statement {
     CancelWait,
 }
 
-fn get_action<'a>(
-    types: &'a Dict<item::EntityType>,
-
-    entity_type_name: &String,
-    table_name: &String,
-    action_name: &String,
-) -> &'a Action {
-    let entity_type = &types[entity_type_name];
-    let table = &entity_type[table_name];
-    table.terms[action_name].action()
-}
-
 pub fn execute_init(
     totem: &mut Totem,
     event_queue: &mut event::EventQueue,
@@ -131,7 +119,12 @@ pub fn execute_action(
         entity.type_name.clone()
     };
 
-    let code = get_action(types, &type_name, &table_name, &action_name);
+    let code = item::get_action(
+        types,
+        &type_name,
+        &table_name,
+        &action_name
+    );
 
     while pc < code.len() && cc.is_none() {
         match code[pc] {

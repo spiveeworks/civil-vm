@@ -12,8 +12,8 @@ use civil_vm::event::EventQueue;
 
 fn get_types() -> Dict<EntityType> {
     let parser = TypeParser::new();
-    let paths = fs::read_dir("./types")
-        .expect("Failed to open \"types\" directory");
+    let paths = fs::read_dir("./data")
+        .expect("Failed to open \"data\" directory");
 
     let mut types = Dict::new();
     for path in paths {

@@ -1,5 +1,9 @@
+use prelude::*;
+
 use algorithm;
+use data;
 use item;
+use table;
 
 grammar;
 
@@ -11,9 +15,15 @@ pub Type: item::EntityType = {
     <Item*> => item::link(<>),
 };
 
-Item: (String, table::Item) = {
-    TableSignature => (<>.0, programs::Item::TableSignature(<>.1)),
-    Initializer => (<>.0, programs::Item::Initializer(<>.1)),
+Item: (String, item::Item) = {
+    TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
+    Initializer => (<>.0, item::Item::Initializer(<>.1)),
+    TableInstance => {
+        let instance_name = <>.0;
+        let signature = <>.1;
+        let implementors = <>.2.into_iter().collect();
+        (instance_name, item::Item::TableInstance { signature, implementors })
+    },
 };
 
 
@@ -48,15 +58,15 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //  Algorithms
 //
 
-Initializer: (String, programs::Algorithm) = {
-    <Ident> ":=" "initializer" "{" <Algorithm> "}",
+Initializer: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "initializer" "(" ")" "{" <Algorithm> "}",
 };
 
 Algorithm: algorithm::Algorithm = {
     <Statement*>,
 };
 
-Statement: programs::Statement = {
+Statement: algorithm::Statement = {
     "cancel;" => algorithm::Statement::CancelWait,
 };
 

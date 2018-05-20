@@ -1,5 +1,8 @@
 use prelude::*;
 
+use event;
+use item;
+
 pub enum FieldType {
     Num,
     Ref(item::TableIdent),
