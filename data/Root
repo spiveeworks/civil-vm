@@ -1,0 +1,5 @@
+RootTable := table { init: initializer() }
+
+Root := RootTable { init = init }
+
+init := initializer() {}

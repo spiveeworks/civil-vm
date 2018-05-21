@@ -26,16 +26,30 @@ impl Game {
         event_queue::Simulation::invoke_next(self);
     }
 
-    pub fn run(self: &mut Self) {
-        algorithm::execute_init(
-            &mut self.totem,
-            &mut self.event_queue,
-            &mut self.types,
-            Strong::clone(&self.root),
+    pub fn run(
+        mut totem: Totem,
+        mut event_queue: event::EventQueue,
+        types: Dict<item::EntityType>,
+
+        root_type: String,
+        root_table: String,
+        init: String,
+    ) {
+        let root = algorithm::execute_init(
+            &mut totem,
+            &mut event_queue,
+            &types,
+
+            root_type,
+            root_table,
+            init,
+            Dict::new(),
         );
 
-        while !self.event_queue.is_empty() {
-            self.invoke_next();
+        let mut game = Game { totem, event_queue, types, root };
+
+        while !game.event_queue.is_empty() {
+            game.invoke_next();
         }
         println!("Nothing happened.");
     }

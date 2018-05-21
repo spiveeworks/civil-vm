@@ -5,35 +5,42 @@ use table;
 
 pub type EntityType = Dict<table::Table>;
 
-// for the parser >:P
+pub type TableIdent = (String, String);
+
 pub enum Item {
-    Action(algorithm::Action),
-    Table(Vec<String>),
+    Initializer(algorithm::Algorithm),
+    TableInstance {
+        signature: String,
+        implementors: Dict<String>,
+    },
+    TableSignature(table::Signature),
 }
 
 pub fn link(items: Vec<(String, Item)>) -> EntityType {
     let mut table_defs = Vec::new();
-    let mut actions = Dict::new();
+    let mut algs = Dict::new();
     for (name, item) in items {
         use self::Item::*;
         match item {
-            Table(table_def) => {
-                table_defs.push((name, table_def));
+            TableInstance { signature, implementors } => {
+                drop(signature);  // not useful until type checking exists
+                table_defs.push((name, implementors));
             },
-            Action(action) => {
-                actions.insert(name, action);
+            Initializer(action) => {
+                algs.insert(name, action);
             },
+            TableSignature(_) => (),
         }
     }
 
     let mut tables = Dict::new();
     for (name, table_def) in table_defs {
         let mut table_terms = Dict::new();
-        for name in table_def {
-            let action = actions.remove(&name)
+        for (method, implementor) in table_def {
+            let alg = algs.remove(&implementor)
                 .expect("Undefined action");
-            let table_term = table::TableTerm::Action(action);
-            table_terms.insert(name, table_term);
+            let table_term = table::TableTerm::Initializer(alg);
+            table_terms.insert(method, table_term);
         }
         let table = table::Table {
             terms: table_terms,
@@ -42,3 +49,16 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
     }
     tables
 }
+
+pub fn get_action<'a>(
+    types: &'a Dict<EntityType>,
+
+    entity_type_name: &String,
+    table_name: &String,
+    action_name: &String,
+) -> &'a algorithm::Algorithm {
+    let entity_type = &types[entity_type_name];
+    let table = &entity_type[table_name];
+    table.terms[action_name].algorithm()
+}
+

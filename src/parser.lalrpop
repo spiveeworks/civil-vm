@@ -1,23 +1,69 @@
+use prelude::*;
+
 use algorithm;
+use data;
 use item;
+use table;
 
 grammar;
+
+//
+//  Items
+//
 
 pub Type: item::EntityType = {
     <Item*> => item::link(<>),
 };
 
 Item: (String, item::Item) = {
-    Table => (<>.0, item::Item::Table(<>.1)),
-    Action => (<>.0, item::Item::Action(<>.1)),
+    TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
+    Initializer => (<>.0, item::Item::Initializer(<>.1)),
+    TableInstance => {
+        let instance_name = <>.0;
+        let signature = <>.1;
+        let implementors = <>.2.into_iter().collect();
+        (instance_name, item::Item::TableInstance { signature, implementors })
+    },
 };
 
-Table: (String, Vec<String>) = {
-    <Ident> "::" "Table" "{" <Ident*> "}" => (<>),
+
+//
+//  Tables
+//
+
+TableSignature: (String, Dict<table::SignatureTerm>) = {
+    <name: Ident> ":=" "table" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+        (name, terms.into_iter().collect()),
 };
 
-Action: (String, algorithm::Action) = {
-    <Ident> "::" "Action" "{" <Statement*> "}" => (<>),
+TableSignatureTerm: (String, table::SignatureTerm) = {
+    <Ident> ":" <TermSignature>,
+};
+
+TermSignature: table::SignatureTerm = {
+    "initializer" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Initializer(<>),
+};
+
+DataType: data::FieldType = {
+    "Num" => data::FieldType::Num,
+};
+
+TableInstance: (String, String, Vec<(String, String)>) = {
+    <Ident> ":=" <Ident> "{" <Comma<Assignment>> "}",
+};
+
+
+//
+//  Algorithms
+//
+
+Initializer: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "initializer" "(" ")" "{" <Algorithm> "}",
+};
+
+Algorithm: algorithm::Algorithm = {
+    <Statement*>,
 };
 
 Statement: algorithm::Statement = {
@@ -25,6 +71,27 @@ Statement: algorithm::Statement = {
 };
 
 
+//
+//  General Purpose Things
+//
+
+Assignment: (String, String) = {
+    <Ident> "=" <Ident>
+};
+
 Ident: String = {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
+};
+
+// taken directly from
+// http://lalrpop.github.io/lalrpop/tutorial/007_macros.html
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
 };

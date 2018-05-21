@@ -1,7 +1,12 @@
 use prelude::*;
 
 use event;
+use item;
 
+pub enum FieldType {
+    Num,
+    Ref(item::TableIdent),
+}
 
 // we could use a union
 pub enum Field {

@@ -6,8 +6,7 @@ use data;
 use event;
 use item;
 
-
-pub type Action = Vec<Statement>;
+pub type Algorithm = Vec<Statement>;
 
 pub enum Statement {
     Debug(String),
@@ -15,6 +14,14 @@ pub enum Statement {
         ent_name: String,
         action_name: String,
         args: Dict<String>,
+    },
+    // TODO expressions
+    ExecInit {
+        type_name: String,
+        table_name: String,
+        init_name: String,
+        args: Dict<String>,
+        result_name: String,
     },
     State {
         name: String,
@@ -24,34 +31,28 @@ pub enum Statement {
     CancelWait,
 }
 
-fn get_action<'a>(
-    types: &'a Dict<item::EntityType>,
-
-    entity_type_name: &String,
-    table_name: &String,
-    action_name: &String,
-) -> &'a Action {
-    let entity_type = &types[entity_type_name];
-    let table = &entity_type[table_name];
-    table.terms[action_name].action()
-}
-
 pub fn execute_init(
     totem: &mut Totem,
     event_queue: &mut event::EventQueue,
     types: &Dict<item::EntityType>,
 
-    entity: Strong<data::EntityData>,
-) {
+    type_name: String,
+    table_name: String,
+    init_name: String,
+    args: data::Data,
+) -> data::Entity {
+    let result = data::EntityData::new(type_name);
     execute_reaction(
         totem,
         event_queue,
         types,
-        entity,
-        "Root".into(),
-        "init".into(),
-        Dict::new(),
+        Strong::clone(&result),
+
+        table_name,
+        init_name,
+        args
     );
+    result
 }
 
 pub fn continue_action(
@@ -132,7 +133,12 @@ pub fn execute_action(
         entity.type_name.clone()
     };
 
-    let code = get_action(types, &type_name, &table_name, &action_name);
+    let code = item::get_action(
+        types,
+        &type_name,
+        &table_name,
+        &action_name
+    );
 
     while pc < code.len() && cc.is_none() {
         match code[pc] {
@@ -155,6 +161,30 @@ pub fn execute_action(
                 }
 
                 vars = extract(&mut vars, args);
+            },
+            Statement::ExecInit {
+                ref type_name,
+                ref table_name,
+                ref init_name,
+                ref args,
+                ref result_name,
+            } => {
+                let args = extract(&mut vars, args);
+                let result_val = execute_init(
+                    totem,
+                    event_queue,
+                    types,
+
+                    type_name.clone(),
+                    table_name.clone(),
+                    init_name.clone(),
+                    args
+                );
+
+                let table = table_name.clone();
+                let result_ref = data::EntityRef { data: result_val, table };
+                let result_term = data::Field::Entity(result_ref);
+                vars.insert(result_name.clone(), result_term);
             },
             Statement::State {
                 ref name,
