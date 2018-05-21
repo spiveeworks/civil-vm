@@ -4,7 +4,6 @@ use std::fs;
 
 use civil_vm::prelude::*;
 
-use civil_vm::data::EntityData;
 use civil_vm::item::EntityType;
 use civil_vm::game::Game;
 use civil_vm::parser::TypeParser;
@@ -40,9 +39,13 @@ fn main() {
     let event_queue = EventQueue::new(now);
     let types = get_types();
 
-    let root = EntityData::new("Root".into());
+    Game::run(
+        totem,
+        event_queue,
+        types,
 
-    let mut game = Game { totem, event_queue, types, root };
-
-    game.run();
+        "Root".into(),
+        "Root".into(),
+        "init".into(),
+    );
 }
