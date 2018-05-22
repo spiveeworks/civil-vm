@@ -187,7 +187,17 @@ pub fn execute_action(
                 ref results,
                 ref expressions,
             } => {
-                unimplemented!();
+                let result_vals = evaluate_expressions(
+                    totem,
+                    event_queue,
+                    types,
+
+                    expressions,
+                    &mut vars,
+                );
+                for (name, val) in results.iter().zip(result_vals) {
+                    vars.insert(name.clone(), val);
+                }
             },
             Statement::State {
                 ref name,
@@ -347,7 +357,7 @@ fn evaluate_expressions(
                     event_queue,
                     types,
 
-                    expressions,
+                    args,
                     vars,
                 );
                 let result_val = execute_init(
