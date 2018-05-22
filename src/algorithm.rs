@@ -15,13 +15,10 @@ pub enum Statement {
         action_name: String,
         args: Dict<String>,
     },
-    // TODO expressions
-    ExecInit {
-        type_name: String,
-        table_name: String,
-        init_name: String,
-        args: Dict<String>,
-        result_name: String,
+    Assign {
+        // multiple expressions all so that x, y = y, x is possible :P
+        expressions: Vec<Expression>,
+        results: Vec<String>,
     },
     State {
         name: String,
@@ -29,6 +26,17 @@ pub enum Statement {
         wait: Option<Time>,
     },
     CancelWait,
+}
+
+pub enum Expression {
+    MoveVar(String),
+    CloneVar(String),
+    InitEntity {
+        type_name: String,
+        table_name: String,
+        init_name: String,
+        args: Vec<Expression>,
+    },
 }
 
 pub fn execute_init(
@@ -39,8 +47,11 @@ pub fn execute_init(
     type_name: String,
     table_name: String,
     init_name: String,
-    args: data::Data,
+    args: Vec<data::Field>,
 ) -> data::Entity {
+    let param_list = unimplemented!();
+    let param_list: &Vec<String>  = param_list;
+    let args = param_list.iter().cloned().zip(args).collect();
     let result = data::EntityData::new(type_name);
     execute_reaction(
         totem,
@@ -162,29 +173,11 @@ pub fn execute_action(
 
                 vars = extract(&mut vars, args);
             },
-            Statement::ExecInit {
-                ref type_name,
-                ref table_name,
-                ref init_name,
-                ref args,
-                ref result_name,
+            Statement::Assign {
+                ref results,
+                ref expressions,
             } => {
-                let args = extract(&mut vars, args);
-                let result_val = execute_init(
-                    totem,
-                    event_queue,
-                    types,
-
-                    type_name.clone(),
-                    table_name.clone(),
-                    init_name.clone(),
-                    args
-                );
-
-                let table = table_name.clone();
-                let result_ref = data::EntityRef { data: result_val, table };
-                let result_term = data::Field::Entity(result_ref);
-                vars.insert(result_name.clone(), result_term);
+                unimplemented!();
             },
             Statement::State {
                 ref name,
@@ -312,3 +305,59 @@ fn update_state(
     entity.event = event;
 }
 
+fn evaluate_expressions(
+    totem: &mut Totem,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
+
+    expressions: &Vec<Expression>,
+    vars: &mut data::Data,
+) -> Vec<data::Field> {
+    let mut result = Vec::new();
+
+    use self::Expression::*;
+    for expression in expressions {
+        match *expression {
+            MoveVar(ref name) => {
+                let val = vars.remove(name).expect("Variable not in scope");
+                result.push(val);
+            },
+            CloneVar(ref name) => {
+                let val = vars[name].clone();
+                result.push(val);
+            },
+            InitEntity {
+                ref type_name,
+                ref table_name,
+                ref init_name,
+                ref args,
+            } => {
+                let args = evaluate_expressions(
+                    totem,
+                    event_queue,
+                    types,
+
+                    expressions,
+                    vars,
+                );
+                let result_val = execute_init(
+                    totem,
+                    event_queue,
+                    types,
+
+                    type_name.clone(),
+                    table_name.clone(),
+                    init_name.clone(),
+                    args
+                );
+
+                let table = table_name.clone();
+                let result_ref = data::EntityRef { data: result_val, table };
+                let result_term = data::Field::Entity(result_ref);
+                result.push(result_term);
+            },
+        }
+    }
+
+    result
+}
