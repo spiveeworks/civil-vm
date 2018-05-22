@@ -50,15 +50,15 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
     tables
 }
 
-pub fn get_action<'a>(
+pub fn get_algorithm<'a>(
     types: &'a Dict<EntityType>,
 
     entity_type_name: &String,
     table_name: &String,
-    action_name: &String,
+    algorithm_name: &String,
 ) -> &'a algorithm::Algorithm {
     let entity_type = &types[entity_type_name];
     let table = &entity_type[table_name];
-    table.terms[action_name].algorithm()
+    table.terms[algorithm_name].algorithm()
 }
 

@@ -59,17 +59,33 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //
 
 Initializer: (String, algorithm::Algorithm) = {
-    <Ident> ":=" "initializer" "(" ")" "{" <Algorithm> "}",
+    <Ident> ":=" "initializer" <Algorithm>,
 };
 
 Algorithm: algorithm::Algorithm = {
-    <Statement*>,
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Statement*> "}" => {
+        algorithm::Algorithm { <> }
+    },
 };
 
 Statement: algorithm::Statement = {
     "cancel;" => algorithm::Statement::CancelWait,
+    <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
+        algorithm::Statement::Assign{ <> }
+    },
 };
 
+//
+//  Expressions
+//
+
+Expression: algorithm::Expression = {
+    <Ident> => algorithm::Expression::MoveVar(<>),
+    "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
+    <type_name: Ident> "." <table_name: Ident> "." <init_name: Ident> "("
+        <args: Comma<Expression>> ")"
+        => algorithm::Expression::InitEntity { <> },
+};
 
 //
 //  General Purpose Things

@@ -43,7 +43,7 @@ impl Game {
             root_type,
             root_table,
             init,
-            Dict::new(),
+            Vec::new(),
         );
 
         let mut game = Game { totem, event_queue, types, root };

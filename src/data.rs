@@ -9,6 +9,7 @@ pub enum FieldType {
 }
 
 // we could use a union
+#[derive(Clone)]
 pub enum Field {
     Num(f64),
     Entity(EntityRef),
@@ -65,6 +66,7 @@ impl EntityData {
     }
 }
 
+#[derive(Clone)]
 pub struct EntityRef {
     pub table: String,
     pub data: Strong<EntityData>,
