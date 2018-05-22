@@ -59,11 +59,13 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //
 
 Initializer: (String, algorithm::Algorithm) = {
-    <Ident> ":=" "initializer" "(" ")" "{" <Algorithm> "}",
+    <Ident> ":=" "initializer" <Algorithm>,
 };
 
 Algorithm: algorithm::Algorithm = {
-    <Statement*>,
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Statement*> "}" => {
+        algorithm::Algorithm { <> }
+    }
 };
 
 Statement: algorithm::Statement = {

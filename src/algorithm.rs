@@ -6,7 +6,10 @@ use data;
 use event;
 use item;
 
-pub type Algorithm = Vec<Statement>;
+pub struct Algorithm {
+    pub param_list: Vec<String>,
+    pub steps: Vec<Statement>,
+}
 
 pub enum Statement {
     Debug(String),
@@ -49,9 +52,16 @@ pub fn execute_init(
     init_name: String,
     args: Vec<data::Field>,
 ) -> data::Entity {
-    let param_list = unimplemented!();
-    let param_list: &Vec<String>  = param_list;
-    let args = param_list.iter().cloned().zip(args).collect();
+    let args = item::get_algorithm(
+        types,
+        &type_name,
+        &table_name,
+        &init_name,
+    )   .param_list
+        .iter()
+        .cloned()
+        .zip(args)
+        .collect();
     let result = data::EntityData::new(type_name);
     execute_reaction(
         totem,
@@ -144,12 +154,12 @@ pub fn execute_action(
         entity.type_name.clone()
     };
 
-    let code = item::get_action(
+    let code = &item::get_algorithm(
         types,
         &type_name,
         &table_name,
         &action_name
-    );
+    ).steps;
 
     while pc < code.len() && cc.is_none() {
         match code[pc] {
