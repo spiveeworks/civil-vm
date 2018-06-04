@@ -217,8 +217,8 @@ pub fn execute_algorithm(
 
                         &entity,
 
-                        table_name.clone(),
-                        action_name.clone(),
+                        table_name,
+                        action_name,
                         pc,
 
                         time,
@@ -235,6 +235,8 @@ pub fn execute_algorithm(
                     action_name: new_action_name.clone(),
                     vars: new_vars,
                 });
+
+                break;
             },
             Statement::Assign {
                 ref results,
@@ -328,11 +330,50 @@ pub fn execute_algorithm(
                     .set()
                     .remove(&key);
             },
-            Statement::SetIterate { .. } => {
-                unimplemented!();
+            Statement::SetIterate {
+                ref set_name,
+                ref var_name,
+                break_line,
+            } => {
+                let set = vars.remove(set_name).expect("no set").unwrap_set();
+                for (ent, ()) in &set {
+                    let val = data::Field::Entity(ent.0.clone());
+                    vars.insert(var_name.clone(), val);
+
+                    let result = execute_algorithm(
+                        totem,
+                        event_queue,
+                        types,
+
+                        entity.clone(),
+                        table_name.clone(),
+                        action_name.clone(),
+
+                        vars,
+                        pc + 1,
+                        has_state,
+                    );
+
+                    vars = {
+                        if let AlgorithmResult::ContinueLoop {
+                            vars
+                        } = result {
+                            vars
+                        } else {
+                            panic!("Loop leakage");
+                        }
+                    };
+                }
+
+                vars.insert(set_name.clone(), data::Field::Set(set));
+
+                pc = break_line;
             },
             Statement::Continue => {
-                unimplemented!();
+                result = Some(AlgorithmResult::ContinueLoop {
+                    vars
+                });
+                break;
             },
         }
 

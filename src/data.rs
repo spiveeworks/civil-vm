@@ -43,6 +43,13 @@ impl Field {
         }
     }
 
+    pub fn unwrap_set(self: Self) -> EntitySet {
+        match self {
+            Field::Set(result) => result,
+            _ => panic!("Expected set"),
+        }
+    }
+
     pub fn set(self: &mut Self) -> &mut EntitySet {
         match *self {
             Field::Set(ref mut result) => result,
