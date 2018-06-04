@@ -29,6 +29,20 @@ pub enum Statement {
         wait: Option<Time>,
     },
     CancelWait,
+    SetAdd {
+        set_name: String,
+        to_add: Expression,
+    },
+    SetRemove {
+        set_name: String,
+        to_remove: Expression,
+    },
+    SetIterate {
+        set_name: String,
+        var_name: String,
+        break_line: usize,
+    },
+    Continue,
 }
 
 pub enum Expression {
@@ -239,6 +253,45 @@ pub fn execute_action(
 
                 has_state = false;
             },
+
+            Statement::SetAdd { ref set_name, ref to_add } => {
+                let mut vals = evaluate_expression(
+                    totem,
+                    event_queue,
+                    types,
+
+                    to_add,
+                    &mut vars,
+                );
+                let ent = vals.remove(0);
+                let key = data::EntityKey(ent.unwrap_entity());
+                vars.get_mut(set_name)
+                    .expect("Set not found")
+                    .set()
+                    .insert(key, ());
+            },
+            Statement::SetRemove { ref set_name, ref to_remove } => {
+                let mut vals = evaluate_expression(
+                    totem,
+                    event_queue,
+                    types,
+
+                    to_remove,
+                    &mut vars,
+                );
+                let ent = vals.remove(0);
+                let key = data::EntityKey(ent.unwrap_entity());
+                vars.get_mut(set_name)
+                    .expect("Set not found")
+                    .set()
+                    .remove(&key);
+            },
+            Statement::SetIterate { .. } => {
+                unimplemented!();
+            },
+            Statement::Continue => {
+                unimplemented!();
+            },
         }
 
         pc += 1;
@@ -325,6 +378,28 @@ fn update_state(
     entity.event = event;
 }
 
+fn evaluate_expression(
+    totem: &mut Totem,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
+
+    expression: &Expression,
+    vars: &mut data::Data,
+) -> Vec<data::Field> {
+    let mut result = Vec::new();
+
+    evaluate_expression_into(
+        totem,
+        event_queue, 
+        types,
+
+        expression,
+        vars,
+        &mut result,
+    );
+
+    result
+}
 fn evaluate_expressions(
     totem: &mut Totem,
     event_queue: &mut event::EventQueue,
@@ -335,49 +410,69 @@ fn evaluate_expressions(
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
 
-    use self::Expression::*;
     for expression in expressions {
-        match *expression {
-            MoveVar(ref name) => {
-                let val = vars.remove(name).expect("Variable not in scope");
-                result.push(val);
-            },
-            CloneVar(ref name) => {
-                let val = vars[name].clone();
-                result.push(val);
-            },
-            InitEntity {
-                ref type_name,
-                ref table_name,
-                ref init_name,
-                ref args,
-            } => {
-                let args = evaluate_expressions(
-                    totem,
-                    event_queue,
-                    types,
+        evaluate_expression_into(
+            totem,
+            event_queue, 
+            types,
 
-                    args,
-                    vars,
-                );
-                let result_val = execute_init(
-                    totem,
-                    event_queue,
-                    types,
-
-                    type_name.clone(),
-                    table_name.clone(),
-                    init_name.clone(),
-                    args
-                );
-
-                let table = table_name.clone();
-                let result_ref = data::EntityRef { data: result_val, table };
-                let result_term = data::Field::Entity(result_ref);
-                result.push(result_term);
-            },
-        }
+            expression,
+            vars,
+            &mut result,
+        );
     }
 
     result
+}
+
+fn evaluate_expression_into(
+    totem: &mut Totem,
+    event_queue: &mut event::EventQueue,
+    types: &Dict<item::EntityType>,
+
+    expression: &Expression,
+    vars: &mut data::Data,
+    result: &mut Vec<data::Field>,
+) {
+    use self::Expression::*;
+    match *expression {
+        MoveVar(ref name) => {
+            let val = vars.remove(name).expect("Variable not in scope");
+            result.push(val);
+        },
+        CloneVar(ref name) => {
+            let val = vars[name].clone();
+            result.push(val);
+        },
+        InitEntity {
+            ref type_name,
+            ref table_name,
+            ref init_name,
+            ref args,
+        } => {
+            let args = evaluate_expressions(
+                totem,
+                event_queue,
+                types,
+
+                args,
+                vars,
+            );
+            let result_val = execute_init(
+                totem,
+                event_queue,
+                types,
+
+                type_name.clone(),
+                table_name.clone(),
+                init_name.clone(),
+                args
+            );
+
+            let table = table_name.clone();
+            let result_ref = data::EntityRef { data: result_val, table };
+            let result_term = data::Field::Entity(result_ref);
+            result.push(result_term);
+        },
+    }
 }

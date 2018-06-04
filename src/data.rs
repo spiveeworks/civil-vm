@@ -36,6 +36,13 @@ impl Field {
         }
     }
 
+    pub fn unwrap_entity(self: Self) -> EntityRef {
+        match self {
+            Field::Entity(result) => result,
+            _ => panic!("Expected entity"),
+        }
+    }
+
     pub fn set(self: &mut Self) -> &mut EntitySet {
         match *self {
             Field::Set(ref mut result) => result,
@@ -84,7 +91,7 @@ pub struct EntityRef {
 
 
 #[derive(Clone)]
-pub struct EntityKey(EntityRef);
+pub struct EntityKey(pub EntityRef);
 
 impl EntityKey {
     fn as_usize(self: &Self) -> usize {
@@ -94,9 +101,18 @@ impl EntityKey {
 }
 
 impl Hash for EntityKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(self: &Self, state: &mut H) {
         self.as_usize().hash(state);
     }
+}
+
+impl PartialEq for EntityKey {
+    fn eq(self: &Self, other: &Self) -> bool {
+        self.as_usize() == other.as_usize()
+    }
+}
+
+impl Eq for EntityKey {
 }
 
 pub type EntitySet = ::std::collections::HashMap<EntityKey, ()>;
