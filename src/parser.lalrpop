@@ -102,7 +102,7 @@ Statement: algorithm::Statement = {
     "wait" <Number> ";" => {
         algorithm::Statement::Wait(Time::try_from(<>).unwrap())
     },
-    <set_name: Ident> "." "insert" "(" <to_add: Expression> ")" ";"=> {
+    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";"=> {
         algorithm::Statement::SetAdd { <> }
     },
     <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";"=> {
