@@ -2,4 +2,10 @@ RootTable := table { init: initializer() }
 
 Root := RootTable { init = init }
 
-init := initializer() {}
+init := initializer() {
+    self = Null {};
+    wait 5;
+    BANG;
+    self = Null {};
+}
+

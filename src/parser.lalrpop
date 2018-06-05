@@ -91,6 +91,7 @@ Block: Vec<algorithm::Statement> = {
 };
 
 Statement: algorithm::Statement = {
+    "BANG;" => algorithm::Statement::Debug("BANG".into()),
     "cancel;" => algorithm::Statement::CancelWait,
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
         algorithm::Statement::Assign{ <> }

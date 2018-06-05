@@ -383,12 +383,7 @@ pub fn execute_algorithm(
         pc += 1;
     }
 
-    if has_state {
-        if pc != code.len() {
-            println!("Warning: Code after external call will not be executed
-without creating a new entity state");
-        }
-    } else {
+    if !has_state {
         panic!("Tried to exit without resetting state");
     }
 
