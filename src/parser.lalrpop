@@ -76,6 +76,9 @@ Statement: algorithm::Statement = {
     "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
         algorithm::Statement::State { <> }
     },
+    "wait" <Number> ";" => {
+        algorithm::Statement::Wait(Time::try_from(<>).unwrap())
+    },
 };
 
 //
@@ -89,6 +92,11 @@ Expression: algorithm::Expression = {
         <args: Comma<Expression>> ")"
         => algorithm::Expression::InitEntity { <> },
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
+};
+
+Number: f64 = {
+    r"[0-9]+" => <>.parse().unwrap(),
+    r"[0-9]*\.[0-9]+" => <>.parse().unwrap(),
 };
 
 //
