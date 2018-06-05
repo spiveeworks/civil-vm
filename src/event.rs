@@ -21,15 +21,18 @@ pub struct Event {
 
 impl Event {
     pub fn invoke(self: Self, game: &mut game::Game) {
-        algorithm::continue_action(
+        algorithm::execute_action(
             &mut game.totem,
             &mut game.event_queue,
             &mut game.types,
-            self.entity,
 
+            self.entity,
             self.table_name,
             self.action_name,
+
+            None,
             self.pc,
+            true,
         );
     }
 }

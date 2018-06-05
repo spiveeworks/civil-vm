@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use prelude::*;
 
 use event;
@@ -16,6 +18,7 @@ pub enum Field {
     // Data(DataTerm),
     // Weak(WeakRef),
     // List(???),
+    Set(EntitySet),
 }
 
 impl Field {
@@ -30,6 +33,27 @@ impl Field {
         match *self {
             Field::Entity(ref result) => result,
             _ => panic!("Expected entity"),
+        }
+    }
+
+    pub fn unwrap_entity(self: Self) -> EntityRef {
+        match self {
+            Field::Entity(result) => result,
+            _ => panic!("Expected entity"),
+        }
+    }
+
+    pub fn unwrap_set(self: Self) -> EntitySet {
+        match self {
+            Field::Set(result) => result,
+            _ => panic!("Expected set"),
+        }
+    }
+
+    pub fn set(self: &mut Self) -> &mut EntitySet {
+        match *self {
+            Field::Set(ref mut result) => result,
+            _ => panic!("Expected set"),
         }
     }
 }
@@ -71,4 +95,32 @@ pub struct EntityRef {
     pub table: String,
     pub data: Strong<EntityData>,
 }
+
+
+#[derive(Clone)]
+pub struct EntityKey(pub EntityRef);
+
+impl EntityKey {
+    fn as_usize(self: &Self) -> usize {
+        let as_ref = &*self.0.data;
+        as_ref as *const Cell<EntityData> as usize
+    }
+}
+
+impl Hash for EntityKey {
+    fn hash<H: Hasher>(self: &Self, state: &mut H) {
+        self.as_usize().hash(state);
+    }
+}
+
+impl PartialEq for EntityKey {
+    fn eq(self: &Self, other: &Self) -> bool {
+        self.as_usize() == other.as_usize()
+    }
+}
+
+impl Eq for EntityKey {
+}
+
+pub type EntitySet = ::std::collections::HashMap<EntityKey, ()>;
 

@@ -11,7 +11,7 @@ pub struct Game {
     pub totem: Totem,
     pub event_queue: event::EventQueue,
     pub types: Dict<item::EntityType>,
-    pub root: data::Entity,
+    pub root: data::EntityRef,
 }
 
 // purely for the Simulate trait, do not use
