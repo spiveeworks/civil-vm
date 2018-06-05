@@ -85,6 +85,7 @@ Expression: algorithm::Expression = {
     <type_name: Ident> "." <table_name: Ident> "." <init_name: Ident> "("
         <args: Comma<Expression>> ")"
         => algorithm::Expression::InitEntity { <> },
+    "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
 };
 
 //

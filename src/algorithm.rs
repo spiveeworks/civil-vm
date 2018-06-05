@@ -54,6 +54,7 @@ pub enum Expression {
         init_name: String,
         args: Vec<Expression>,
     },
+    InitSet,
 }
 
 pub fn execute_init(
@@ -510,6 +511,9 @@ fn evaluate_expression_into(
 
             let result_term = data::Field::Entity(result_ref);
             result.push(result_term);
+        },
+        InitSet => {
+            result.push(data::Field::Set(data::EntitySet::new()));
         },
     }
 }
