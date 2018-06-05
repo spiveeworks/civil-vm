@@ -63,8 +63,30 @@ Initializer: (String, algorithm::Algorithm) = {
 };
 
 Algorithm: algorithm::Algorithm = {
-    "(" <param_list: Comma<Ident>> ")" "{" <steps: Statement*> "}" => {
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
         algorithm::Algorithm { <> }
+    },
+};
+
+Blocks: Vec<algorithm::Statement> = {
+    <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
+};
+
+Block: Vec<algorithm::Statement> = {
+    <Statement> => vec![<>],
+    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
+        let mut block = block;
+        let break_offset = block.len() + 1;
+        let intro = algorithm::Statement::SetIterate {
+            var_name,
+            set_name,
+            break_offset,
+        };
+        block.insert(0, intro);
+
+        block.push(algorithm::Statement::Continue);
+
+        block
     },
 };
 
@@ -78,6 +100,12 @@ Statement: algorithm::Statement = {
     },
     "wait" <Number> ";" => {
         algorithm::Statement::Wait(Time::try_from(<>).unwrap())
+    },
+    <set_name: Ident> "." "insert" "(" <to_add: Expression> ")" ";"=> {
+        algorithm::Statement::SetAdd { <> }
+    },
+    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";"=> {
+        algorithm::Statement::SetRemove { <> }
     },
 };
 
