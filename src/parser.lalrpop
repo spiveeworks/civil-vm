@@ -50,7 +50,7 @@ DataType: data::FieldType = {
 };
 
 TableInstance: (String, String, Vec<(String, String)>) = {
-    <Ident> ":=" <Ident> "{" <Comma<Assignment>> "}",
+    <Ident> ":=" <Ident> "{" <Comma<Assignment<Ident>>> "}",
 };
 
 
@@ -73,6 +73,9 @@ Statement: algorithm::Statement = {
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
         algorithm::Statement::Assign{ <> }
     },
+    "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
+        algorithm::Statement::State { <> }
+    },
 };
 
 //
@@ -92,8 +95,12 @@ Expression: algorithm::Expression = {
 //  General Purpose Things
 //
 
-Assignment: (String, String) = {
-    <Ident> "=" <Ident>
+Dict<T>: Dict<T> = {
+    <Comma<Assignment<T>>> => <>.into_iter().collect()
+};
+
+Assignment<T>: (String, T) = {
+    <Ident> "=" <T>
 };
 
 Ident: String = {
