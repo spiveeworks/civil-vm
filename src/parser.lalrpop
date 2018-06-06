@@ -17,7 +17,7 @@ pub Type: item::EntityType = {
 
 Item: (String, item::Item) = {
     TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
-    Initializer => (<>.0, item::Item::Initializer(<>.1)),
+    TableTerm => (<>.0, item::Item::TableTerm(<>.1)),
     TableInstance => {
         let instance_name = <>.0;
         let signature = <>.1;
@@ -26,6 +26,10 @@ Item: (String, item::Item) = {
     },
 };
 
+TableTerm: (String, table::TableTerm) = {
+    Initializer => (<>.0, table::TableTerm::Constructor(<>.1)),
+    Action => (<>.0, table::TableTerm::Action(<>.1)),
+};
 
 //
 //  Tables
@@ -60,6 +64,10 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 
 Initializer: (String, algorithm::Algorithm) = {
     <Ident> ":=" "initializer" <Algorithm>,
+};
+
+Action: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "action" <Algorithm>,
 };
 
 Algorithm: algorithm::Algorithm = {

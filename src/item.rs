@@ -8,7 +8,7 @@ pub type EntityType = Dict<table::Table>;
 pub type TableIdent = (String, String);
 
 pub enum Item {
-    Initializer(algorithm::Algorithm),
+    TableTerm(table::TableTerm),
     TableInstance {
         signature: String,
         implementors: Dict<String>,
@@ -26,8 +26,8 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
                 drop(signature);  // not useful until type checking exists
                 table_defs.push((name, implementors));
             },
-            Initializer(action) => {
-                algs.insert(name, action);
+            TableTerm(term) => {
+                algs.insert(name, term);
             },
             TableSignature(_) => (),
         }
@@ -39,7 +39,7 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
         for (method, implementor) in table_def {
             let alg = algs.remove(&implementor)
                 .expect("Undefined action");
-            let table_term = table::TableTerm::Constructor(alg);
+            let table_term = alg;
             table_terms.insert(method, table_term);
         }
         let table = table::Table {
