@@ -4,14 +4,15 @@ use algorithm;
 use data;
 
 pub enum TableTerm {
-    Initializer(algorithm::Algorithm),
+    Action(algorithm::Algorithm),
+    Constructor(algorithm::Algorithm),
 }
 
 impl TableTerm {
     pub fn algorithm(self: &Self) -> &algorithm::Algorithm {
         match *self {
-            TableTerm::Initializer(ref result) => result,
-            // _ => panic!("Expected action"),
+            TableTerm::Action(ref result) => result,
+            TableTerm::Constructor(ref result) => result,
         }
     }
 }

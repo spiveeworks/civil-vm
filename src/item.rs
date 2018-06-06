@@ -39,7 +39,7 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
         for (method, implementor) in table_def {
             let alg = algs.remove(&implementor)
                 .expect("Undefined action");
-            let table_term = table::TableTerm::Initializer(alg);
+            let table_term = table::TableTerm::Constructor(alg);
             table_terms.insert(method, table_term);
         }
         let table = table::Table {
