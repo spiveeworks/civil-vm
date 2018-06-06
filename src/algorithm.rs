@@ -38,9 +38,9 @@ pub enum Statement {
         to_remove: Expression,
     },
     SetIterate {
-        set_name: String,
         var_name: String,
-        break_line: usize,
+        set_name: String,
+        break_offset: usize,
     },
     Continue,
 }
@@ -334,8 +334,10 @@ pub fn execute_algorithm(
             Statement::SetIterate {
                 ref set_name,
                 ref var_name,
-                break_line,
+                break_offset,
             } => {
+                let break_line = pc + break_offset;
+
                 let set = vars.remove(set_name).expect("no set").unwrap_set();
                 for (ent, ()) in &set {
                     let val = data::Field::Entity(ent.0.clone());
@@ -381,12 +383,7 @@ pub fn execute_algorithm(
         pc += 1;
     }
 
-    if has_state {
-        if pc != code.len() {
-            println!("Warning: Code after external call will not be executed
-without creating a new entity state");
-        }
-    } else {
+    if !has_state {
         panic!("Tried to exit without resetting state");
     }
 

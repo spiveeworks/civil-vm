@@ -50,7 +50,7 @@ DataType: data::FieldType = {
 };
 
 TableInstance: (String, String, Vec<(String, String)>) = {
-    <Ident> ":=" <Ident> "{" <Comma<Assignment>> "}",
+    <Ident> ":=" <Ident> "{" <Comma<Assignment<Ident>>> "}",
 };
 
 
@@ -63,15 +63,50 @@ Initializer: (String, algorithm::Algorithm) = {
 };
 
 Algorithm: algorithm::Algorithm = {
-    "(" <param_list: Comma<Ident>> ")" "{" <steps: Statement*> "}" => {
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
         algorithm::Algorithm { <> }
     },
 };
 
+Blocks: Vec<algorithm::Statement> = {
+    <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
+};
+
+Block: Vec<algorithm::Statement> = {
+    <Statement> => vec![<>],
+    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
+        let mut block = block;
+        let break_offset = block.len() + 1;
+        let intro = algorithm::Statement::SetIterate {
+            var_name,
+            set_name,
+            break_offset,
+        };
+        block.insert(0, intro);
+
+        block.push(algorithm::Statement::Continue);
+
+        block
+    },
+};
+
 Statement: algorithm::Statement = {
+    "BANG;" => algorithm::Statement::Debug("BANG".into()),
     "cancel;" => algorithm::Statement::CancelWait,
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
         algorithm::Statement::Assign{ <> }
+    },
+    "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
+        algorithm::Statement::State { <> }
+    },
+    "wait" <Number> ";" => {
+        algorithm::Statement::Wait(Time::try_from(<>).unwrap())
+    },
+    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";"=> {
+        algorithm::Statement::SetAdd { <> }
+    },
+    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";"=> {
+        algorithm::Statement::SetRemove { <> }
     },
 };
 
@@ -88,12 +123,21 @@ Expression: algorithm::Expression = {
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
 };
 
+Number: f64 = {
+    r"[0-9]+" => <>.parse().unwrap(),
+    r"[0-9]*\.[0-9]+" => <>.parse().unwrap(),
+};
+
 //
 //  General Purpose Things
 //
 
-Assignment: (String, String) = {
-    <Ident> "=" <Ident>
+Dict<T>: Dict<T> = {
+    <Comma<Assignment<T>>> => <>.into_iter().collect()
+};
+
+Assignment<T>: (String, T) = {
+    <Ident> "=" <T>
 };
 
 Ident: String = {
