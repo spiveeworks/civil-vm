@@ -17,7 +17,7 @@ pub Type: item::EntityType = {
 
 Item: (String, item::Item) = {
     TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
-    Initializer => (<>.0, item::Item::Initializer(<>.1)),
+    TableTerm => (<>.0, item::Item::TableTerm(<>.1)),
     TableInstance => {
         let instance_name = <>.0;
         let signature = <>.1;
@@ -26,6 +26,10 @@ Item: (String, item::Item) = {
     },
 };
 
+TableTerm: (String, table::TableTerm) = {
+    Initializer => (<>.0, table::TableTerm::Constructor(<>.1)),
+    Action => (<>.0, table::TableTerm::Action(<>.1)),
+};
 
 //
 //  Tables
@@ -41,6 +45,8 @@ TableSignatureTerm: (String, table::SignatureTerm) = {
 };
 
 TermSignature: table::SignatureTerm = {
+    "action" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Action(<>),
     "initializer" "(" <Comma<DataType>> ")"
         => table::SignatureTerm::Initializer(<>),
 };
@@ -60,6 +66,10 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 
 Initializer: (String, algorithm::Algorithm) = {
     <Ident> ":=" "initializer" <Algorithm>,
+};
+
+Action: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "action" <Algorithm>,
 };
 
 Algorithm: algorithm::Algorithm = {
@@ -102,12 +112,26 @@ Statement: algorithm::Statement = {
     "wait" <Number> ";" => {
         algorithm::Statement::Wait(Time::try_from(<>).unwrap())
     },
-    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";"=> {
+    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";" => {
         algorithm::Statement::SetAdd { <> }
     },
-    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";"=> {
+    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";" => {
         algorithm::Statement::SetRemove { <> }
     },
+    <typ: Ident> "." <table: Ident> "." <init_name: Ident>
+        "(" <args: Comma<Expression>> ")" ";"
+        => algorithm::Statement::GotoAlg {
+            table: algorithm::TablePath::Static(typ, table),
+            alg_name: init_name,
+            args,
+        },
+    <entity_name: Ident> "." <action_name: Ident>
+        "(" <args: Comma<Expression>> ")" ";"
+        => algorithm::Statement::GotoAlg {
+            table: algorithm::TablePath::Virtual(entity_name),
+            alg_name: action_name,
+            args,
+        },
 };
 
 //
@@ -117,9 +141,12 @@ Statement: algorithm::Statement = {
 Expression: algorithm::Expression = {
     <Ident> => algorithm::Expression::MoveVar(<>),
     "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
-    <type_name: Ident> "." <table_name: Ident> "." <init_name: Ident> "("
-        <args: Comma<Expression>> ")"
+    <type_name: Ident> "." <table_name: Ident>
+        "." <init_name: Ident> "(" <args: Comma<Expression>> ")"
         => algorithm::Expression::InitEntity { <> },
+    <entity_name: Ident> "."
+        <action_name: Ident> "(" <args: Comma<Expression>> ")"
+        => algorithm::Expression::ExecEntity { <> },
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
 };
 

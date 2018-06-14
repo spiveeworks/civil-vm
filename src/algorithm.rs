@@ -11,12 +11,17 @@ pub struct Algorithm {
     pub steps: Vec<Statement>,
 }
 
+pub enum TablePath {
+    Virtual(String),
+    Static(String, String),
+}
+
 pub enum Statement {
     Debug(String),
-    ExecEntity {
-        ent_name: String,
-        action_name: String,
-        args: Dict<String>,
+    GotoAlg {
+        table: TablePath,
+        alg_name: String,
+        args: Vec<Expression>,
     },
     Assign {
         // multiple expressions all so that x, y = y, x is possible :P
@@ -54,7 +59,33 @@ pub enum Expression {
         init_name: String,
         args: Vec<Expression>,
     },
+    ExecEntity {
+        entity_name: String,
+        action_name: String,
+        args: Vec<Expression>,
+    },
     InitSet,
+}
+
+fn bind_args(
+    types: &Dict<item::EntityType>,
+
+    type_name: &String,
+    table_name: &String,
+    init_name: &String,
+
+    args: Vec<data::Field>,
+) -> data::Data {
+    item::get_algorithm(
+        types,
+        type_name,
+        table_name,
+        init_name,
+    )   .param_list
+        .iter()
+        .cloned()
+        .zip(args)
+        .collect()
 }
 
 pub fn execute_init(
@@ -67,16 +98,15 @@ pub fn execute_init(
     init_name: String,
     args: Vec<data::Field>,
 ) -> data::EntityRef {
-    let args = item::get_algorithm(
+    let args = bind_args(
         types,
+
         &type_name,
         &table_name,
         &init_name,
-    )   .param_list
-        .iter()
-        .cloned()
-        .zip(args)
-        .collect();
+
+        args,
+    );
 
     let table = table_name.clone();
     let data = data::EntityData::new(type_name);
@@ -110,7 +140,7 @@ pub fn execute_action(
     vars: Option<data::Data>,  // None to use entity's state
     pc: usize,
     mut has_state: bool,
-) {
+) -> Vec<data::Field> {
     let vars = {
         if let Some(vars) = vars {
             vars
@@ -143,6 +173,7 @@ pub fn execute_action(
         table_name,
         action_name,
         vars,
+        has_state,
     } = result {
         execute_action(
             totem,
@@ -155,8 +186,12 @@ pub fn execute_action(
 
             Some(vars),
             0,
-            true,
-        );
+            has_state,
+        )
+    } else if let AlgorithmResult::ReturnVals(vals) = result {
+        vals
+    } else {
+        Vec::new()
     }
 }
 
@@ -166,6 +201,7 @@ pub enum AlgorithmResult {
         table_name: String,
         action_name: String,
         vars: Dict<data::Field>,
+        has_state: bool,
     },
     ContinueLoop {
         vars: Dict<data::Field>,
@@ -205,9 +241,9 @@ pub fn execute_algorithm(
             Statement::Debug(ref to_print) => {
                 println!("Debug: {}", to_print);
             },
-            Statement::ExecEntity {
-                ref ent_name,
-                action_name: ref new_action_name,
+            Statement::GotoAlg {
+                ref table,
+                alg_name: ref new_action_name,
                 ref args,
             } => {
                 pc += 1;
@@ -218,7 +254,7 @@ pub fn execute_algorithm(
 
                         &entity,
 
-                        table_name,
+                        table_name.clone(),
                         action_name,
                         pc,
 
@@ -226,15 +262,42 @@ pub fn execute_algorithm(
                     );
                 }
 
-                let new_entity = vars[ent_name].entity().clone();
+                let (new_entity, new_table_name, is_initalizer) = match table {
+                    TablePath::Virtual(ref ent_name) => {
+                        let ent_ref = vars[ent_name].entity().clone();
+                        (ent_ref.data, ent_ref.table, false)
+                    },
+                    TablePath::Static(ref type_name, ref table_name) => {
+                        let ent = data::EntityData::new(type_name.clone());
+                        (ent, table_name.clone(), true)
+                    },
+                };
 
-                let new_vars = extract(&mut vars, args);
+                let vals = evaluate_expressions(
+                    totem,
+                    event_queue,
+                    types,
+
+                    args,
+                    &mut vars,
+                );
+
+                let new_vars = bind_args(
+                    types,
+
+                    &new_entity.borrow(totem).type_name,
+                    &new_table_name,
+                    &new_action_name,
+
+                    vals,
+                );
 
                 result = Some(AlgorithmResult::ExternContinuation {
-                    entity: new_entity.data,
-                    table_name: new_entity.table,
+                    entity: new_entity,
+                    table_name: new_table_name,
                     action_name: new_action_name.clone(),
                     vars: new_vars,
+                    has_state: !is_initalizer,
                 });
 
                 break;
@@ -508,6 +571,47 @@ fn evaluate_expression_into(
 
             let result_term = data::Field::Entity(result_ref);
             result.push(result_term);
+        },
+        ExecEntity {
+            ref entity_name,
+            ref action_name,
+            ref args,
+        } => {
+            let entity = vars[entity_name].clone().unwrap_entity();
+            let args = evaluate_expressions(
+                totem,
+                event_queue,
+                types,
+
+                args,
+                vars,
+            );
+            let args = {
+                let type_name = &entity.data.borrow(totem).type_name;
+                bind_args(
+                    types,
+
+                    type_name,
+                    &entity.table,
+                    action_name,
+
+                    args,
+                )
+            };
+            let result_vals = execute_action(
+                totem,
+                event_queue,
+                types,
+
+                entity.data,
+                entity.table,
+                action_name.clone(),
+                Some(args),
+                0,
+                true,
+            );
+
+            result.extend(result_vals);
         },
         InitSet => {
             result.push(data::Field::Set(data::EntitySet::new()));
