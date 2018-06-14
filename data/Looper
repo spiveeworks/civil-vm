@@ -1,0 +1,21 @@
+LooperTable := table {
+    create: initializer(),
+    loop: action(),
+}
+
+Looper := LooperTable { create = create, loop = loop }
+
+create := initializer() {
+    self = Null {};
+}
+
+loop := action(this) {
+    cancel;
+    self = Wait { this = this };
+    wait 1;
+    self = Null {};
+    BANG;
+    this_arg = copy(this);
+    this.loop(this_arg);
+}
+

@@ -173,6 +173,7 @@ pub fn execute_action(
         table_name,
         action_name,
         vars,
+        has_state,
     } = result {
         execute_action(
             totem,
@@ -185,7 +186,7 @@ pub fn execute_action(
 
             Some(vars),
             0,
-            true,
+            has_state,
         )
     } else if let AlgorithmResult::ReturnVals(vals) = result {
         vals
@@ -200,6 +201,7 @@ pub enum AlgorithmResult {
         table_name: String,
         action_name: String,
         vars: Dict<data::Field>,
+        has_state: bool,
     },
     ContinueLoop {
         vars: Dict<data::Field>,
@@ -260,14 +262,14 @@ pub fn execute_algorithm(
                     );
                 }
 
-                let (new_entity, new_table_name) = match table {
+                let (new_entity, new_table_name, is_initalizer) = match table {
                     TablePath::Virtual(ref ent_name) => {
                         let ent_ref = vars[ent_name].entity().clone();
-                        (ent_ref.data, ent_ref.table)
+                        (ent_ref.data, ent_ref.table, false)
                     },
                     TablePath::Static(ref type_name, ref table_name) => {
                         let ent = data::EntityData::new(type_name.clone());
-                        (ent, table_name.clone())
+                        (ent, table_name.clone(), true)
                     },
                 };
 
@@ -283,8 +285,8 @@ pub fn execute_algorithm(
                 let new_vars = bind_args(
                     types,
 
-                    &type_name,
-                    &table_name,
+                    &new_entity.borrow(totem).type_name,
+                    &new_table_name,
                     &new_action_name,
 
                     vals,
@@ -295,6 +297,7 @@ pub fn execute_algorithm(
                     table_name: new_table_name,
                     action_name: new_action_name.clone(),
                     vars: new_vars,
+                    has_state: !is_initalizer,
                 });
 
                 break;

@@ -25,4 +25,5 @@ pub type Signature = Dict<SignatureTerm>;
 
 pub enum SignatureTerm {
     Initializer(Vec<data::FieldType>),
+    Action(Vec<data::FieldType>),
 }

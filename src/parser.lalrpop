@@ -45,6 +45,8 @@ TableSignatureTerm: (String, table::SignatureTerm) = {
 };
 
 TermSignature: table::SignatureTerm = {
+    "action" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Action(<>),
     "initializer" "(" <Comma<DataType>> ")"
         => table::SignatureTerm::Initializer(<>),
 };

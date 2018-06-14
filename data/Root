@@ -4,8 +4,9 @@ Root := RootTable { init = init }
 
 init := initializer() {
     self = Null {};
-    wait 5;
+    looper = Looper.Looper.create();
+    looper_arg = copy(looper);
     BANG;
-    self = Null {};
+    looper.loop(looper_arg);
 }
 
