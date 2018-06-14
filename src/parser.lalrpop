@@ -36,7 +36,7 @@ TableTerm: (String, table::TableTerm) = {
 //
 
 TableSignature: (String, Dict<table::SignatureTerm>) = {
-    <name: Ident> ":=" "table" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+    <name: Ident> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 

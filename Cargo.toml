@@ -1,6 +1,6 @@
 [package]
-name = "civil-vm"
-version = "0.1.0"
+name = "flop"
+version = "0.0.1"
 authors = ["SpiveeWorks <spiveehere@gmail.com>"]
 
 [build-dependencies]
