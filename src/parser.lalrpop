@@ -1,0 +1,185 @@
+use prelude::*;
+
+use algorithm;
+use data;
+use item;
+use table;
+
+grammar;
+
+//
+//  Items
+//
+
+pub Type: item::EntityType = {
+    <Item*> => item::link(<>),
+};
+
+Item: (String, item::Item) = {
+    TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
+    TableTerm => (<>.0, item::Item::TableTerm(<>.1)),
+    TableInstance => {
+        let instance_name = <>.0;
+        let signature = <>.1;
+        let implementors = <>.2.into_iter().collect();
+        (instance_name, item::Item::TableInstance { signature, implementors })
+    },
+};
+
+TableTerm: (String, table::TableTerm) = {
+    Initializer => (<>.0, table::TableTerm::Constructor(<>.1)),
+    Action => (<>.0, table::TableTerm::Action(<>.1)),
+};
+
+//
+//  Tables
+//
+
+TableSignature: (String, Dict<table::SignatureTerm>) = {
+    <name: Ident> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+        (name, terms.into_iter().collect()),
+};
+
+TableSignatureTerm: (String, table::SignatureTerm) = {
+    <Ident> ":" <TermSignature>,
+};
+
+TermSignature: table::SignatureTerm = {
+    "action" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Action(<>),
+    "initializer" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Initializer(<>),
+};
+
+DataType: data::FieldType = {
+    "Num" => data::FieldType::Num,
+};
+
+TableInstance: (String, String, Vec<(String, String)>) = {
+    <Ident> ":=" <Ident> "{" <Comma<Assignment<Ident>>> "}",
+};
+
+
+//
+//  Algorithms
+//
+
+Initializer: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "initializer" <Algorithm>,
+};
+
+Action: (String, algorithm::Algorithm) = {
+    <Ident> ":=" "action" <Algorithm>,
+};
+
+Algorithm: algorithm::Algorithm = {
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
+        algorithm::Algorithm { <> }
+    },
+};
+
+Blocks: Vec<algorithm::Statement> = {
+    <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
+};
+
+Block: Vec<algorithm::Statement> = {
+    <Statement> => vec![<>],
+    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
+        let mut block = block;
+        let break_offset = block.len() + 1;
+        let intro = algorithm::Statement::SetIterate {
+            var_name,
+            set_name,
+            break_offset,
+        };
+        block.insert(0, intro);
+
+        block.push(algorithm::Statement::Continue);
+
+        block
+    },
+};
+
+Statement: algorithm::Statement = {
+    "BANG;" => algorithm::Statement::Debug("BANG".into()),
+    "cancel;" => algorithm::Statement::CancelWait,
+    <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
+        algorithm::Statement::Assign{ <> }
+    },
+    "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
+        algorithm::Statement::State { <> }
+    },
+    "wait" <Number> ";" => {
+        algorithm::Statement::Wait(Time::try_from(<>).unwrap())
+    },
+    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";" => {
+        algorithm::Statement::SetAdd { <> }
+    },
+    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";" => {
+        algorithm::Statement::SetRemove { <> }
+    },
+    <typ: Ident> "." <table: Ident> "." <init_name: Ident>
+        "(" <args: Comma<Expression>> ")" ";"
+        => algorithm::Statement::GotoAlg {
+            table: algorithm::TablePath::Static(typ, table),
+            alg_name: init_name,
+            args,
+        },
+    <entity_name: Ident> "." <action_name: Ident>
+        "(" <args: Comma<Expression>> ")" ";"
+        => algorithm::Statement::GotoAlg {
+            table: algorithm::TablePath::Virtual(entity_name),
+            alg_name: action_name,
+            args,
+        },
+};
+
+//
+//  Expressions
+//
+
+Expression: algorithm::Expression = {
+    <Ident> => algorithm::Expression::MoveVar(<>),
+    "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
+    <type_name: Ident> "." <table_name: Ident>
+        "." <init_name: Ident> "(" <args: Comma<Expression>> ")"
+        => algorithm::Expression::InitEntity { <> },
+    <entity_name: Ident> "."
+        <action_name: Ident> "(" <args: Comma<Expression>> ")"
+        => algorithm::Expression::ExecEntity { <> },
+    "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
+};
+
+Number: f64 = {
+    r"[0-9]+" => <>.parse().unwrap(),
+    r"[0-9]*\.[0-9]+" => <>.parse().unwrap(),
+};
+
+//
+//  General Purpose Things
+//
+
+Dict<T>: Dict<T> = {
+    <Comma<Assignment<T>>> => <>.into_iter().collect()
+};
+
+Assignment<T>: (String, T) = {
+    <Ident> "=" <T>
+};
+
+Ident: String = {
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
+};
+
+// taken directly from
+// http://lalrpop.github.io/lalrpop/tutorial/007_macros.html
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
