@@ -1,9 +1,9 @@
-LooperTable := table {
+LooperRole := role {
     create: initializer(),
     loop: action(),
 }
 
-Looper := LooperTable { create = create, loop = loop }
+Looper := LooperRole { create = create, loop = loop }
 
 create := initializer() {
     self = Null {};

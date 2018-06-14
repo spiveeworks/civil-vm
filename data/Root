@@ -1,6 +1,6 @@
-RootTable := table { init: initializer() }
+RootRole := role { init: initializer() }
 
-Root := RootTable { init = init }
+Root := RootRole { init = init }
 
 init := initializer() {
     self = Null {};
