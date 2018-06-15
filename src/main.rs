@@ -38,10 +38,10 @@ fn main() {
     let event_queue = EventQueue::new(now);
     let types = get_types();
 
+    let mut game = FlopInstance { totem, event_queue, types };
+
     FlopInstance::run(
-        totem,
-        event_queue,
-        types,
+        &mut game,
 
         "Root".into(),
         "Root".into(),

@@ -11,6 +11,8 @@ pub mod table;
 
 pub mod prelude {
     pub use instance::FlopInstance;
+    pub use instance::Flop;
+    pub(crate) use instance::FlopParts;
 
     // Units (just Time)
     pub use sulphate_lib::Time;

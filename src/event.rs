@@ -19,11 +19,9 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn invoke(self: Self, game: &mut FlopInstance) {
+    pub fn invoke<G: Flop>(self: Self, game: &mut G) {
         algorithm::execute_action(
-            &mut game.totem,
-            &mut game.event_queue,
-            &mut game.types,
+            game,
 
             self.entity,
             self.table_name,
@@ -36,8 +34,8 @@ impl Event {
     }
 }
 
-impl event_queue::GeneralEvent<FlopInstance> for Event {
-    fn invoke(self: Self, game: &mut FlopInstance) {
+impl<G: Flop> event_queue::GeneralEvent<G> for Event {
+    fn invoke(self: Self, game: &mut G) {
         Event::invoke(self, game);
     }
 }
