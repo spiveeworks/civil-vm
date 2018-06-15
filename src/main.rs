@@ -4,6 +4,7 @@ use std::fs;
 
 use flop::prelude::*;
 
+use flop::instance::FlopInstance;
 use flop::item::EntityType;
 use flop::parser::TypeParser;
 use flop::event::EventQueue;

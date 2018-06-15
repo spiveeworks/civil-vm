@@ -10,8 +10,8 @@ pub mod parser;
 pub mod table;
 
 pub mod prelude {
-    pub use instance::FlopInstance;
     pub use instance::Flop;
+    // Gives an unused import error, but can't be removed.
     pub(crate) use instance::FlopParts;
 
     // Units (just Time)
