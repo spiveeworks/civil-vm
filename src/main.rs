@@ -5,7 +5,6 @@ use std::fs;
 use flop::prelude::*;
 
 use flop::item::EntityType;
-use flop::game::Game;
 use flop::parser::TypeParser;
 use flop::event::EventQueue;
 
@@ -39,7 +38,7 @@ fn main() {
     let event_queue = EventQueue::new(now);
     let types = get_types();
 
-    Game::run(
+    FlopInstance::run(
         totem,
         event_queue,
         types,

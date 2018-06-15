@@ -7,7 +7,7 @@ use data;
 use event;
 use item;
 
-pub struct Game {
+pub struct FlopInstance {
     pub totem: Totem,
     pub event_queue: event::EventQueue,
     pub types: Dict<item::EntityType>,
@@ -15,13 +15,13 @@ pub struct Game {
 }
 
 // purely for the Simulate trait, do not use
-impl AsMut<event::EventQueue> for Game {
+impl AsMut<event::EventQueue> for FlopInstance {
     fn as_mut(self: &mut Self) -> &mut event::EventQueue {
         &mut self.event_queue
     }
 }
 
-impl Game {
+impl FlopInstance {
     pub fn invoke_next(self: &mut Self) {
         event_queue::Simulation::invoke_next(self);
     }
@@ -46,7 +46,7 @@ impl Game {
             Vec::new(),
         );
 
-        let mut game = Game { totem, event_queue, types, root };
+        let mut game = FlopInstance { totem, event_queue, types, root };
 
         while !game.event_queue.is_empty() {
             game.invoke_next();

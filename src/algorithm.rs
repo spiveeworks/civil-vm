@@ -65,6 +65,10 @@ pub enum Expression {
         args: Vec<Expression>,
     },
     InitSet,
+    ExternCall {
+        function_name: String,
+        args: Vec<Expression>,
+    },
 }
 
 fn bind_args(
@@ -615,6 +619,10 @@ fn evaluate_expression_into(
         },
         InitSet => {
             result.push(data::Field::Set(data::EntitySet::new()));
+        },
+
+        ExternCall { .. } => {
+            unimplemented!();
         },
     }
 }

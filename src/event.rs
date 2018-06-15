@@ -4,7 +4,6 @@ use prelude::*;
 
 use algorithm;
 use data;
-use game;
 
 
 pub type EventQueue = event_queue::EventQueue<Event>;
@@ -20,7 +19,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn invoke(self: Self, game: &mut game::Game) {
+    pub fn invoke(self: Self, game: &mut FlopInstance) {
         algorithm::execute_action(
             &mut game.totem,
             &mut game.event_queue,
@@ -37,8 +36,8 @@ impl Event {
     }
 }
 
-impl event_queue::GeneralEvent<game::Game> for Event {
-    fn invoke(self: Self, game: &mut game::Game) {
+impl event_queue::GeneralEvent<FlopInstance> for Event {
+    fn invoke(self: Self, game: &mut FlopInstance) {
         Event::invoke(self, game);
     }
 }

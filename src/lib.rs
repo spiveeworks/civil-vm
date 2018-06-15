@@ -4,12 +4,14 @@ extern crate totem_cell;
 pub mod algorithm;
 pub mod data;
 pub mod event;
+pub mod instance;
 pub mod item;
-pub mod game;
 pub mod parser;
 pub mod table;
 
 pub mod prelude {
+    pub use instance::FlopInstance;
+
     // Units (just Time)
     pub use sulphate_lib::Time;
 
