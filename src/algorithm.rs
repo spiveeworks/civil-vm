@@ -11,11 +11,13 @@ pub struct Algorithm {
     pub steps: Vec<Statement>,
 }
 
+#[derive(Clone)]
 pub enum TablePath {
     Virtual(String),
     Static(String, String),
 }
 
+#[derive(Clone)]
 pub enum Statement {
     Debug(String),
     GotoAlg {
@@ -50,6 +52,7 @@ pub enum Statement {
     Continue,
 }
 
+#[derive(Clone)]
 pub enum Expression {
     MoveVar(String),
     CloneVar(String),
@@ -65,6 +68,10 @@ pub enum Expression {
         args: Vec<Expression>,
     },
     InitSet,
+    ExternCall {
+        function_name: String,
+        args: Vec<Expression>,
+    },
 }
 
 fn bind_args(
@@ -88,18 +95,15 @@ fn bind_args(
         .collect()
 }
 
-pub fn execute_init(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
-
+pub fn execute_init<G: Flop>(
+    game: &mut G,
     type_name: String,
     table_name: String,
     init_name: String,
     args: Vec<data::Field>,
 ) -> data::EntityRef {
     let args = bind_args(
-        types,
+        game.types(),
 
         &type_name,
         &table_name,
@@ -112,10 +116,7 @@ pub fn execute_init(
     let data = data::EntityData::new(type_name);
 
     execute_action(
-        totem,
-        event_queue,
-        types,
-
+        game,
         Strong::clone(&data),
         table_name,
         init_name,
@@ -128,11 +129,8 @@ pub fn execute_init(
     data::EntityRef { table, data }
 }
 
-pub fn execute_action(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
-
+pub fn execute_action<G: Flop>(
+    game: &mut G,
     entity: Strong<data::EntityData>,
     table_name: String,
     action_name: String,
@@ -147,7 +145,7 @@ pub fn execute_action(
         } else {
             has_state = false;
 
-            let entity = entity.borrow_mut(totem);
+            let entity = entity.borrow_mut(game.totem());
             entity.event = None;
 
             mem::replace(&mut entity.data, Dict::new())
@@ -155,10 +153,7 @@ pub fn execute_action(
     };
 
     let result = execute_algorithm(
-        totem,
-        event_queue,
-        types,
-
+        game,
         entity,
         table_name,
         action_name,
@@ -176,10 +171,7 @@ pub fn execute_action(
         has_state,
     } = result {
         execute_action(
-            totem,
-            event_queue,
-            types,
-
+            game,
             entity,
             table_name,
             action_name,
@@ -209,10 +201,8 @@ pub enum AlgorithmResult {
     ReturnVals(Vec<data::Field>),
 }
 
-pub fn execute_algorithm(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
+pub fn execute_algorithm<G: Flop>(
+    game: &mut G,
 
     entity: Strong<data::EntityData>,
     table_name: String,
@@ -225,16 +215,16 @@ pub fn execute_algorithm(
     let mut result = None;
 
     let type_name = {
-        let entity = entity.borrow(totem);
+        let entity = entity.borrow(game.totem());
         entity.type_name.clone()
     };
 
-    let code = &item::get_algorithm(
-        types,
+    let code = item::get_algorithm(
+        game.types(),
         &type_name,
         &table_name,
         &action_name
-    ).steps;
+    ).steps.clone();
 
     while pc < code.len() && result.is_none() {
         match code[pc] {
@@ -248,6 +238,7 @@ pub fn execute_algorithm(
             } => {
                 pc += 1;
                 if let Some(&Statement::Wait(time)) = code.get(pc) {
+                    let (totem, _, event_queue) = game.parts();
                     wait(
                         totem,
                         event_queue,
@@ -274,14 +265,12 @@ pub fn execute_algorithm(
                 };
 
                 let vals = evaluate_expressions(
-                    totem,
-                    event_queue,
-                    types,
-
+                    game,
                     args,
                     &mut vars,
                 );
 
+                let (totem, types, _) = game.parts();
                 let new_vars = bind_args(
                     types,
 
@@ -307,10 +296,7 @@ pub fn execute_algorithm(
                 ref expressions,
             } => {
                 let result_vals = evaluate_expressions(
-                    totem,
-                    event_queue,
-                    types,
-
+                    game,
                     expressions,
                     &mut vars,
                 );
@@ -326,7 +312,7 @@ pub fn execute_algorithm(
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let entity = entity.borrow_mut(totem);
+                let entity = entity.borrow_mut(game.totem());
 
                 entity.state_name = name.clone();
                 entity.data = extract(&mut vars, terms);
@@ -335,6 +321,7 @@ pub fn execute_algorithm(
             }
 
             Statement::Wait(time) => {
+                let (totem, _, event_queue) = game.parts();
                 wait(
                     totem,
                     event_queue,
@@ -351,10 +338,10 @@ pub fn execute_algorithm(
                 break;
             },
             Statement::CancelWait => {
-                let entity = entity.borrow_mut(totem);
+                let entity = entity.borrow_mut(game.totem());
                 let event = entity.event.take();
                 if let Some(event::EventHandle(ref time, id)) = event {
-                    event_queue.cancel_event(time, id);
+                    game.event_queue().cancel_event(time, id);
                 }
 
                 entity.data = Dict::new();
@@ -364,10 +351,7 @@ pub fn execute_algorithm(
 
             Statement::SetAdd { ref set_name, ref to_add } => {
                 let mut vals = evaluate_expression(
-                    totem,
-                    event_queue,
-                    types,
-
+                    game,
                     to_add,
                     &mut vars,
                 );
@@ -380,10 +364,7 @@ pub fn execute_algorithm(
             },
             Statement::SetRemove { ref set_name, ref to_remove } => {
                 let mut vals = evaluate_expression(
-                    totem,
-                    event_queue,
-                    types,
-
+                    game,
                     to_remove,
                     &mut vars,
                 );
@@ -407,9 +388,7 @@ pub fn execute_algorithm(
                     vars.insert(var_name.clone(), val);
 
                     let result = execute_algorithm(
-                        totem,
-                        event_queue,
-                        types,
+                        game,
 
                         entity.clone(),
                         table_name.clone(),
@@ -478,21 +457,15 @@ fn wait(
     entity.event = Some(event::EventHandle(absolute_time, id));
 }
 
-fn evaluate_expression(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
-
+fn evaluate_expression<G: Flop>(
+    game: &mut G,
     expression: &Expression,
     vars: &mut data::Data,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
 
     evaluate_expression_into(
-        totem,
-        event_queue, 
-        types,
-
+        game,
         expression,
         vars,
         &mut result,
@@ -500,11 +473,9 @@ fn evaluate_expression(
 
     result
 }
-fn evaluate_expressions(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
 
+fn evaluate_expressions<G: Flop>(
+    game: &mut G,
     expressions: &Vec<Expression>,
     vars: &mut data::Data,
 ) -> Vec<data::Field> {
@@ -512,10 +483,7 @@ fn evaluate_expressions(
 
     for expression in expressions {
         evaluate_expression_into(
-            totem,
-            event_queue, 
-            types,
-
+            game,
             expression,
             vars,
             &mut result,
@@ -525,11 +493,8 @@ fn evaluate_expressions(
     result
 }
 
-fn evaluate_expression_into(
-    totem: &mut Totem,
-    event_queue: &mut event::EventQueue,
-    types: &Dict<item::EntityType>,
-
+fn evaluate_expression_into<G: Flop>(
+    game: &mut G,
     expression: &Expression,
     vars: &mut data::Data,
     result: &mut Vec<data::Field>,
@@ -551,18 +516,12 @@ fn evaluate_expression_into(
             ref args,
         } => {
             let args = evaluate_expressions(
-                totem,
-                event_queue,
-                types,
-
+                game,
                 args,
                 vars,
             );
             let result_ref = execute_init(
-                totem,
-                event_queue,
-                types,
-
+                game,
                 type_name.clone(),
                 table_name.clone(),
                 init_name.clone(),
@@ -579,17 +538,14 @@ fn evaluate_expression_into(
         } => {
             let entity = vars[entity_name].clone().unwrap_entity();
             let args = evaluate_expressions(
-                totem,
-                event_queue,
-                types,
-
+                game,
                 args,
                 vars,
             );
             let args = {
-                let type_name = &entity.data.borrow(totem).type_name;
+                let type_name = &entity.data.borrow(game.totem()).type_name;
                 bind_args(
-                    types,
+                    game.types(),
 
                     type_name,
                     &entity.table,
@@ -599,10 +555,7 @@ fn evaluate_expression_into(
                 )
             };
             let result_vals = execute_action(
-                totem,
-                event_queue,
-                types,
-
+                game,
                 entity.data,
                 entity.table,
                 action_name.clone(),
@@ -615,6 +568,18 @@ fn evaluate_expression_into(
         },
         InitSet => {
             result.push(data::Field::Set(data::EntitySet::new()));
+        },
+
+        ExternCall { ref function_name, ref args } => {
+            let args = evaluate_expressions(
+                game,
+                args,
+                vars,
+            );
+
+            let results = game.extern_call(function_name, args);
+
+            result.extend(results);
         },
     }
 }
