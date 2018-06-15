@@ -148,6 +148,8 @@ Expression: algorithm::Expression = {
         <action_name: Ident> "(" <args: Comma<Expression>> ")"
         => algorithm::Expression::ExecEntity { <> },
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
+    "game" "." <function_name: Ident> "(" <args: Comma<Expression>> ")"
+        => algorithm::Expression::ExternCall { <> },
 };
 
 Number: f64 = {
