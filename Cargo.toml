@@ -9,5 +9,5 @@ lalrpop = "0.15.2"
 [dependencies]
 lalrpop-util = "0.15.2"
 regex = "0.2.1"
-totem_cell = { "path" = "../totem_cell" }
+totem_cell = { "git" = "https://github.com/spiveeworks/totem_cell" }
 sulphate-lib = { git = "https://github.com/spiveeworks/sulphate" }
