@@ -20,6 +20,7 @@ pub enum TablePath {
 #[derive(Clone)]
 pub enum Statement {
     Debug(String),
+    DebugNums(Vec<Expression>),
     GotoAlg {
         table: TablePath,
         alg_name: String,
@@ -72,6 +73,13 @@ pub enum Expression {
         function_name: String,
         args: Vec<Expression>,
     },
+
+    Const(f64),
+    Add(Box<Expression>, Box<Expression>),
+    Sub(Box<Expression>, Box<Expression>),
+    Mul(Box<Expression>, Box<Expression>),
+    Div(Box<Expression>, Box<Expression>),
+    Pow(Box<Expression>, Box<Expression>),
 }
 
 fn bind_args(
@@ -230,6 +238,18 @@ pub fn execute_algorithm<G: Flop>(
         match code[pc] {
             Statement::Debug(ref to_print) => {
                 println!("Debug: {}", to_print);
+            },
+            Statement::DebugNums(ref exprs) => {
+                let mut result = evaluate_expressions(
+                    game,
+                    exprs,
+                    &mut vars,
+                ).into_iter();
+                print!("Debug: {}", result.next().unwrap().num());
+                for x in result {
+                    print!(", {}", x.num());
+                }
+                println!("");
             },
             Statement::GotoAlg {
                 ref table,
@@ -580,6 +600,95 @@ fn evaluate_expression_into<G: Flop>(
             let results = game.extern_call(function_name, args);
 
             result.extend(results);
+        },
+
+        Const(x) => {
+            result.push(data::Field::Num(x));
+        },
+        Add(ref x, ref y) => {
+            let mut x = evaluate_expression(
+                game,
+                &**x,
+                vars,
+            );
+            let mut y = evaluate_expression(
+                game,
+                &**y,
+                vars,
+            );
+
+            assert!(x.len() == 1, "Num operation on multiple values");
+            assert!(y.len() == 1, "Num operation on multiple values");
+            let new_val = x.pop().unwrap().num() + y.pop().unwrap().num();
+            result.push(data::Field::Num(new_val));
+        },
+        Sub(ref x, ref y) => {
+            let mut x = evaluate_expression(
+                game,
+                &**x,
+                vars,
+            );
+            let mut y = evaluate_expression(
+                game,
+                &**y,
+                vars,
+            );
+
+            assert!(x.len() == 1, "Num operation on multiple values");
+            assert!(y.len() == 1, "Num operation on multiple values");
+            let new_val = x.pop().unwrap().num() - y.pop().unwrap().num();
+            result.push(data::Field::Num(new_val));
+        },
+        Mul(ref x, ref y) => {
+            let mut x = evaluate_expression(
+                game,
+                &**x,
+                vars,
+            );
+            let mut y = evaluate_expression(
+                game,
+                &**y,
+                vars,
+            );
+
+            assert!(x.len() == 1, "Num operation on multiple values");
+            assert!(y.len() == 1, "Num operation on multiple values");
+            let new_val = x.pop().unwrap().num() * y.pop().unwrap().num();
+            result.push(data::Field::Num(new_val));
+        },
+        Div(ref x, ref y) => {
+            let mut x = evaluate_expression(
+                game,
+                &**x,
+                vars,
+            );
+            let mut y = evaluate_expression(
+                game,
+                &**y,
+                vars,
+            );
+
+            assert!(x.len() == 1, "Num operation on multiple values");
+            assert!(y.len() == 1, "Num operation on multiple values");
+            let new_val = x.pop().unwrap().num() / y.pop().unwrap().num();
+            result.push(data::Field::Num(new_val));
+        },
+        Pow(ref x, ref y) => {
+            let mut x = evaluate_expression(
+                game,
+                &**x,
+                vars,
+            );
+            let mut y = evaluate_expression(
+                game,
+                &**y,
+                vars,
+            );
+
+            assert!(x.len() == 1, "Num operation on multiple values");
+            assert!(y.len() == 1, "Num operation on multiple values");
+            let new_val = x.pop().unwrap().num().powf(y.pop().unwrap().num());
+            result.push(data::Field::Num(new_val));
         },
     }
 }
