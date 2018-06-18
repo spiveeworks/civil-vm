@@ -102,6 +102,9 @@ Block: Vec<algorithm::Statement> = {
 
 Statement: algorithm::Statement = {
     "BANG;" => algorithm::Statement::Debug("BANG".into()),
+    "print" "(" <Comma<Expression>> ")" ";" => {
+        algorithm::Statement::DebugNums(<>)
+    },
     "cancel;" => algorithm::Statement::CancelWait,
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
         algorithm::Statement::Assign{ <> }
@@ -109,7 +112,7 @@ Statement: algorithm::Statement = {
     "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
         algorithm::Statement::State { <> }
     },
-    "wait" <Expression> ";" => {
+    "wait" "(" <Expression> ")" ";" => {
         algorithm::Statement::Wait(<>)
     },
     <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";" => {
@@ -139,6 +142,11 @@ Statement: algorithm::Statement = {
 //
 
 Expression: algorithm::Expression = {
+    SumExpression,
+};
+
+SimpleExpression: algorithm::Expression = {
+    "(" <Expression> ")",
     <Ident> => algorithm::Expression::MoveVar(<>),
     "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
     <type_name: Ident> "." <table_name: Ident>
@@ -150,6 +158,27 @@ Expression: algorithm::Expression = {
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
     "game" "." <function_name: Ident> "(" <args: Comma<Expression>> ")"
         => algorithm::Expression::ExternCall { <> },
+    Number => algorithm::Expression::Const(<>),
+};
+
+SumExpression: algorithm::Expression = {
+    MulExpression,
+    <x: SumExpression> "+" <y: MulExpression> =>
+        algorithm::Expression::Add(Box::new(x), Box::new(y)),
+    <x: SumExpression> "-" <y: MulExpression> =>
+        algorithm::Expression::Sub(Box::new(x), Box::new(y)),
+};
+MulExpression: algorithm::Expression = {
+    PowExpression,
+    <x: MulExpression> "*" <y: PowExpression> =>
+        algorithm::Expression::Mul(Box::new(x), Box::new(y)),
+    <x: MulExpression> "/" <y: PowExpression> =>
+        algorithm::Expression::Div(Box::new(x), Box::new(y)),
+};
+PowExpression: algorithm::Expression = {
+    <SimpleExpression>,
+    <x: PowExpression> "^" <y: SimpleExpression> =>
+        algorithm::Expression::Pow(Box::new(x), Box::new(y)),
 };
 
 Number: f64 = {
