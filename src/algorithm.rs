@@ -35,7 +35,7 @@ pub enum Statement {
         name: String,
         terms: Dict<String>,
     },
-    Wait(Time),
+    Wait(Expression),
     CancelWait,
     SetAdd {
         set_name: String,
@@ -257,7 +257,14 @@ pub fn execute_algorithm<G: Flop>(
                 ref args,
             } => {
                 pc += 1;
-                if let Some(&Statement::Wait(time)) = code.get(pc) {
+                if let Some(&Statement::Wait(ref time)) = code.get(pc) {
+                    let time_ = evaluate_expression(
+                        game,
+                        time,
+                        &mut vars,
+                    )[0].num();
+                    let time = Time::try_from(time_)
+                        .expect("Num Error");
                     let (totem, _, event_queue) = game.parts();
                     wait(
                         totem,
@@ -340,7 +347,14 @@ pub fn execute_algorithm<G: Flop>(
                 has_state = true;
             }
 
-            Statement::Wait(time) => {
+            Statement::Wait(ref time) => {
+                let time_ = evaluate_expression(
+                    game,
+                    time,
+                    &mut vars,
+                )[0].num();
+                let time = Time::try_from(time_)
+                    .expect("Num Error");
                 let (totem, _, event_queue) = game.parts();
                 wait(
                     totem,

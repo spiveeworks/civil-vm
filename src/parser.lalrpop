@@ -109,8 +109,8 @@ Statement: algorithm::Statement = {
     "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
         algorithm::Statement::State { <> }
     },
-    "wait" <Number> ";" => {
-        algorithm::Statement::Wait(Time::try_from(<>).unwrap())
+    "wait" <Expression> ";" => {
+        algorithm::Statement::Wait(<>)
     },
     <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";" => {
         algorithm::Statement::SetAdd { <> }
