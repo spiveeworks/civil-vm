@@ -12,7 +12,7 @@ create := initializer() {
 loop := action(this) {
     cancel;
     self = Wait { this = this };
-    wait 1;
+    wait(1);
     self = Null {};
     BANG;
     this_arg = copy(this);
