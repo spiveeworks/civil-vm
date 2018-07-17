@@ -1,7 +1,5 @@
 use prelude::*;
 
-use sulphate_lib::event_queue;
-
 use algorithm;
 use data;
 use event;
