@@ -7,6 +7,8 @@ use data;
 use event;
 use item;
 
+pub use sulphate_lib::event_queue::Simulation;
+
 pub struct FlopInstance {
     pub totem: Totem,
     pub event_queue: event::EventQueue,
@@ -15,7 +17,7 @@ pub struct FlopInstance {
 
 impl FlopInstance {
     pub fn invoke_next(self: &mut Self) {
-        event_queue::Simulation::invoke_next(self);
+        Simulation::invoke_next(self);
     }
 
     pub fn run<G: Flop>(
@@ -35,7 +37,7 @@ impl FlopInstance {
         );
 
         while !game.event_queue().is_empty() {
-            event_queue::Simulation::invoke_next(game);
+            Simulation::invoke_next(game);
         }
         println!("Nothing happened.");
     }
