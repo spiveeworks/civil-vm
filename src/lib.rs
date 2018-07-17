@@ -8,6 +8,7 @@ pub mod instance;
 pub mod item;
 pub mod parser;
 pub mod table;
+pub mod load_types;
 
 pub mod prelude {
     pub use instance::Flop;
