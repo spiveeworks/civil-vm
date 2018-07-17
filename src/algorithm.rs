@@ -6,6 +6,8 @@ use data;
 use event;
 use item;
 
+use instance::FlopParts;
+
 pub struct Algorithm {
     pub param_list: Vec<String>,
     pub steps: Vec<Statement>,
@@ -57,14 +59,14 @@ pub enum Statement {
 pub enum Expression {
     MoveVar(String),
     CloneVar(String),
-    InitEntity {
+    InitObject {
         type_name: String,
         table_name: String,
         init_name: String,
         args: Vec<Expression>,
     },
-    ExecEntity {
-        entity_name: String,
+    ExecObject {
+        object_name: String,
         action_name: String,
         args: Vec<Expression>,
     },
@@ -83,7 +85,7 @@ pub enum Expression {
 }
 
 fn bind_args(
-    types: &Dict<item::EntityType>,
+    types: &Dict<item::ObjectType>,
 
     type_name: &String,
     table_name: &String,
@@ -109,7 +111,7 @@ pub fn execute_init<G: Flop>(
     table_name: String,
     init_name: String,
     args: Vec<data::Field>,
-) -> data::EntityRef {
+) -> data::ObjectRef {
     let args = bind_args(
         game.types(),
 
@@ -121,7 +123,7 @@ pub fn execute_init<G: Flop>(
     );
 
     let table = table_name.clone();
-    let data = data::EntityData::new(type_name);
+    let data = data::ObjectData::new(type_name);
 
     execute_action(
         game,
@@ -134,16 +136,16 @@ pub fn execute_init<G: Flop>(
         false,
     );
 
-    data::EntityRef { table, data }
+    data::ObjectRef { table, data }
 }
 
 pub fn execute_action<G: Flop>(
     game: &mut G,
-    entity: Strong<data::EntityData>,
+    object: Strong<data::ObjectData>,
     table_name: String,
     action_name: String,
 
-    vars: Option<data::Data>,  // None to use entity's state
+    vars: Option<data::Data>,  // None to use object's state
     pc: usize,
     mut has_state: bool,
 ) -> Vec<data::Field> {
@@ -153,16 +155,16 @@ pub fn execute_action<G: Flop>(
         } else {
             has_state = false;
 
-            let entity = entity.borrow_mut(game.totem());
-            entity.event = None;
+            let object = object.borrow_mut(game.totem());
+            object.event = None;
 
-            mem::replace(&mut entity.data, Dict::new())
+            mem::replace(&mut object.data, Dict::new())
         }
     };
 
     let result = execute_algorithm(
         game,
-        entity,
+        object,
         table_name,
         action_name,
 
@@ -172,7 +174,7 @@ pub fn execute_action<G: Flop>(
     );
 
     if let AlgorithmResult::ExternContinuation {
-        entity,
+        object,
         table_name,
         action_name,
         vars,
@@ -180,7 +182,7 @@ pub fn execute_action<G: Flop>(
     } = result {
         execute_action(
             game,
-            entity,
+            object,
             table_name,
             action_name,
 
@@ -197,7 +199,7 @@ pub fn execute_action<G: Flop>(
 
 pub enum AlgorithmResult {
     ExternContinuation {
-        entity: data::Entity,
+        object: data::Object,
         table_name: String,
         action_name: String,
         vars: Dict<data::Field>,
@@ -212,7 +214,7 @@ pub enum AlgorithmResult {
 pub fn execute_algorithm<G: Flop>(
     game: &mut G,
 
-    entity: Strong<data::EntityData>,
+    object: Strong<data::ObjectData>,
     table_name: String,
     action_name: String,
 
@@ -223,8 +225,8 @@ pub fn execute_algorithm<G: Flop>(
     let mut result = None;
 
     let type_name = {
-        let entity = entity.borrow(game.totem());
-        entity.type_name.clone()
+        let object = object.borrow(game.totem());
+        object.type_name.clone()
     };
 
     let code = item::get_algorithm(
@@ -270,7 +272,7 @@ pub fn execute_algorithm<G: Flop>(
                         totem,
                         event_queue,
 
-                        &entity,
+                        &object,
 
                         table_name.clone(),
                         action_name,
@@ -280,13 +282,13 @@ pub fn execute_algorithm<G: Flop>(
                     );
                 }
 
-                let (new_entity, new_table_name, is_initalizer) = match table {
+                let (new_object, new_table_name, is_initalizer) = match table {
                     TablePath::Virtual(ref ent_name) => {
-                        let ent_ref = vars[ent_name].entity().clone();
+                        let ent_ref = vars[ent_name].object().clone();
                         (ent_ref.data, ent_ref.table, false)
                     },
                     TablePath::Static(ref type_name, ref table_name) => {
-                        let ent = data::EntityData::new(type_name.clone());
+                        let ent = data::ObjectData::new(type_name.clone());
                         (ent, table_name.clone(), true)
                     },
                 };
@@ -301,7 +303,7 @@ pub fn execute_algorithm<G: Flop>(
                 let new_vars = bind_args(
                     types,
 
-                    &new_entity.borrow(totem).type_name,
+                    &new_object.borrow(totem).type_name,
                     &new_table_name,
                     &new_action_name,
 
@@ -309,7 +311,7 @@ pub fn execute_algorithm<G: Flop>(
                 );
 
                 result = Some(AlgorithmResult::ExternContinuation {
-                    entity: new_entity,
+                    object: new_object,
                     table_name: new_table_name,
                     action_name: new_action_name.clone(),
                     vars: new_vars,
@@ -339,10 +341,10 @@ pub fn execute_algorithm<G: Flop>(
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let entity = entity.borrow_mut(game.totem());
+                let object = object.borrow_mut(game.totem());
 
-                entity.state_name = name.clone();
-                entity.data = extract(&mut vars, terms);
+                object.state_name = name.clone();
+                object.data = extract(&mut vars, terms);
 
                 has_state = true;
             }
@@ -360,7 +362,7 @@ pub fn execute_algorithm<G: Flop>(
                     totem,
                     event_queue,
 
-                    &entity,
+                    &object,
 
                     table_name,
                     action_name,
@@ -372,13 +374,13 @@ pub fn execute_algorithm<G: Flop>(
                 break;
             },
             Statement::CancelWait => {
-                let entity = entity.borrow_mut(game.totem());
-                let event = entity.event.take();
+                let object = object.borrow_mut(game.totem());
+                let event = object.event.take();
                 if let Some(event::EventHandle(ref time, id)) = event {
                     game.event_queue().cancel_event(time, id);
                 }
 
-                entity.data = Dict::new();
+                object.data = Dict::new();
 
                 has_state = false;
             },
@@ -390,7 +392,7 @@ pub fn execute_algorithm<G: Flop>(
                     &mut vars,
                 );
                 let ent = vals.remove(0);
-                let key = data::EntityKey(ent.unwrap_entity());
+                let key = data::ObjectKey(ent.unwrap_object());
                 vars.get_mut(set_name)
                     .expect("Set not found")
                     .set()
@@ -403,7 +405,7 @@ pub fn execute_algorithm<G: Flop>(
                     &mut vars,
                 );
                 let ent = vals.remove(0);
-                let key = data::EntityKey(ent.unwrap_entity());
+                let key = data::ObjectKey(ent.unwrap_object());
                 vars.get_mut(set_name)
                     .expect("Set not found")
                     .set()
@@ -418,13 +420,13 @@ pub fn execute_algorithm<G: Flop>(
 
                 let set = vars.remove(set_name).expect("no set").unwrap_set();
                 for (ent, ()) in &set {
-                    let val = data::Field::Entity(ent.0.clone());
+                    let val = data::Field::Object(ent.0.clone());
                     vars.insert(var_name.clone(), val);
 
                     let result = execute_algorithm(
                         game,
 
-                        entity.clone(),
+                        object.clone(),
                         table_name.clone(),
                         action_name.clone(),
 
@@ -470,7 +472,7 @@ fn wait(
     totem: &mut Totem,
     event_queue: &mut event::EventQueue,
 
-    entity_: &data::Entity,
+    object_: &data::Object,
 
     table_name: String,
     action_name: String,
@@ -478,17 +480,17 @@ fn wait(
 
     time: Time,
 ) {
-    let entity = Strong::clone(entity_);
+    let object = Strong::clone(object_);
     pc += 1;
 
-    let event = event::Event { entity, table_name, action_name, pc };
+    let event = event::Event { object, table_name, action_name, pc };
 
     let absolute_time = event_queue.now() + time;
     let id = event_queue.enqueue_absolute(event, absolute_time);
 
-    let entity = entity_.borrow_mut(totem);
+    let object = object_.borrow_mut(totem);
 
-    entity.event = Some(event::EventHandle(absolute_time, id));
+    object.event = Some(event::EventHandle(absolute_time, id));
 }
 
 fn evaluate_expression<G: Flop>(
@@ -543,7 +545,7 @@ fn evaluate_expression_into<G: Flop>(
             let val = vars[name].clone();
             result.push(val);
         },
-        InitEntity {
+        InitObject {
             ref type_name,
             ref table_name,
             ref init_name,
@@ -562,27 +564,27 @@ fn evaluate_expression_into<G: Flop>(
                 args
             );
 
-            let result_term = data::Field::Entity(result_ref);
+            let result_term = data::Field::Object(result_ref);
             result.push(result_term);
         },
-        ExecEntity {
-            ref entity_name,
+        ExecObject {
+            ref object_name,
             ref action_name,
             ref args,
         } => {
-            let entity = vars[entity_name].clone().unwrap_entity();
+            let object = vars[object_name].clone().unwrap_object();
             let args = evaluate_expressions(
                 game,
                 args,
                 vars,
             );
             let args = {
-                let type_name = &entity.data.borrow(game.totem()).type_name;
+                let type_name = &object.data.borrow(game.totem()).type_name;
                 bind_args(
                     game.types(),
 
                     type_name,
-                    &entity.table,
+                    &object.table,
                     action_name,
 
                     args,
@@ -590,8 +592,8 @@ fn evaluate_expression_into<G: Flop>(
             };
             let result_vals = execute_action(
                 game,
-                entity.data,
-                entity.table,
+                object.data,
+                object.table,
                 action_name.clone(),
                 Some(args),
                 0,
@@ -601,7 +603,7 @@ fn evaluate_expression_into<G: Flop>(
             result.extend(result_vals);
         },
         InitSet => {
-            result.push(data::Field::Set(data::EntitySet::new()));
+            result.push(data::Field::Set(data::ObjectSet::new()));
         },
 
         ExternCall { ref function_name, ref args } => {

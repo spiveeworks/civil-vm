@@ -5,11 +5,11 @@ use std::fs;
 use flop::prelude::*;
 
 use flop::instance::FlopInstance;
-use flop::item::EntityType;
+use flop::item::ObjectType;
 use flop::parser::TypeParser;
 use flop::event::EventQueue;
 
-fn get_types() -> Dict<EntityType> {
+fn get_types() -> Dict<ObjectType> {
     let parser = TypeParser::new();
     let paths = fs::read_dir("./data")
         .expect("Failed to open \"data\" directory");

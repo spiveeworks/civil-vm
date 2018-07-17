@@ -14,11 +14,11 @@ pub enum FieldType {
 #[derive(Clone)]
 pub enum Field {
     Num(f64),
-    Entity(EntityRef),
+    Object(ObjectRef),
     // Data(DataTerm),
     // Weak(WeakRef),
     // List(???),
-    Set(EntitySet),
+    Set(ObjectSet),
 }
 
 impl Field {
@@ -29,28 +29,28 @@ impl Field {
         }
     }
 
-    pub fn entity(self: &Self) -> &EntityRef {
+    pub fn object(self: &Self) -> &ObjectRef {
         match *self {
-            Field::Entity(ref result) => result,
-            _ => panic!("Expected entity"),
+            Field::Object(ref result) => result,
+            _ => panic!("Expected object"),
         }
     }
 
-    pub fn unwrap_entity(self: Self) -> EntityRef {
+    pub fn unwrap_object(self: Self) -> ObjectRef {
         match self {
-            Field::Entity(result) => result,
-            _ => panic!("Expected entity"),
+            Field::Object(result) => result,
+            _ => panic!("Expected object"),
         }
     }
 
-    pub fn unwrap_set(self: Self) -> EntitySet {
+    pub fn unwrap_set(self: Self) -> ObjectSet {
         match self {
             Field::Set(result) => result,
             _ => panic!("Expected set"),
         }
     }
 
-    pub fn set(self: &mut Self) -> &mut EntitySet {
+    pub fn set(self: &mut Self) -> &mut ObjectSet {
         match *self {
             Field::Set(ref mut result) => result,
             _ => panic!("Expected set"),
@@ -67,9 +67,9 @@ struct DataTerm {
 
 pub type Data = Dict<Field>;
 
-pub type Entity = Strong<EntityData>;
+pub type Object = Strong<ObjectData>;
 
-pub struct EntityData {
+pub struct ObjectData {
     // for cancelling the current wait timer
     pub event: Option<event::EventHandle>,
 
@@ -80,47 +80,47 @@ pub struct EntityData {
     pub data: Data,
 }
 
-impl EntityData {
-    pub fn new(type_name: String) -> Entity {
+impl ObjectData {
+    pub fn new(type_name: String) -> Object {
         let data = Dict::new();
         let state_name = "EMPTY".into();
         let event = None;
-        let entity = EntityData { event, type_name, state_name, data };
-        strong(entity)
+        let object = ObjectData { event, type_name, state_name, data };
+        strong(object)
     }
 }
 
 #[derive(Clone)]
-pub struct EntityRef {
+pub struct ObjectRef {
     pub table: String,
-    pub data: Strong<EntityData>,
+    pub data: Strong<ObjectData>,
 }
 
 
 #[derive(Clone)]
-pub struct EntityKey(pub EntityRef);
+pub struct ObjectKey(pub ObjectRef);
 
-impl EntityKey {
+impl ObjectKey {
     fn as_usize(self: &Self) -> usize {
         let as_ref = &*self.0.data;
-        as_ref as *const Cell<EntityData> as usize
+        as_ref as *const Cell<ObjectData> as usize
     }
 }
 
-impl Hash for EntityKey {
+impl Hash for ObjectKey {
     fn hash<H: Hasher>(self: &Self, state: &mut H) {
         self.as_usize().hash(state);
     }
 }
 
-impl PartialEq for EntityKey {
+impl PartialEq for ObjectKey {
     fn eq(self: &Self, other: &Self) -> bool {
         self.as_usize() == other.as_usize()
     }
 }
 
-impl Eq for EntityKey {
+impl Eq for ObjectKey {
 }
 
-pub type EntitySet = ::std::collections::HashMap<EntityKey, ()>;
+pub type ObjectSet = ::std::collections::HashMap<ObjectKey, ()>;
 

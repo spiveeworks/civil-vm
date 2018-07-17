@@ -3,7 +3,7 @@ use prelude::*;
 use algorithm;
 use table;
 
-pub type EntityType = Dict<table::Table>;
+pub type ObjectType = Dict<table::Table>;
 
 pub type TableIdent = (String, String);
 
@@ -16,7 +16,7 @@ pub enum Item {
     TableSignature(table::Signature),
 }
 
-pub fn link(items: Vec<(String, Item)>) -> EntityType {
+pub fn link(items: Vec<(String, Item)>) -> ObjectType {
     let mut table_defs = Vec::new();
     let mut algs = Dict::new();
     for (name, item) in items {
@@ -51,14 +51,14 @@ pub fn link(items: Vec<(String, Item)>) -> EntityType {
 }
 
 pub fn get_algorithm<'a>(
-    types: &'a Dict<EntityType>,
+    types: &'a Dict<ObjectType>,
 
-    entity_type_name: &String,
+    object_type_name: &String,
     table_name: &String,
     algorithm_name: &String,
 ) -> &'a algorithm::Algorithm {
-    let entity_type = &types[entity_type_name];
-    let table = &entity_type[table_name];
+    let object_type = &types[object_type_name];
+    let table = &object_type[table_name];
     table.terms[algorithm_name].algorithm()
 }
 

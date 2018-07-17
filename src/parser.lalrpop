@@ -11,7 +11,7 @@ grammar;
 //  Items
 //
 
-pub Type: item::EntityType = {
+pub Type: item::ObjectType = {
     <Item*> => item::link(<>),
 };
 
@@ -128,10 +128,10 @@ Statement: algorithm::Statement = {
             alg_name: init_name,
             args,
         },
-    <entity_name: Ident> "." <action_name: Ident>
+    <object_name: Ident> "." <action_name: Ident>
         "(" <args: Comma<Expression>> ")" ";"
         => algorithm::Statement::GotoAlg {
-            table: algorithm::TablePath::Virtual(entity_name),
+            table: algorithm::TablePath::Virtual(object_name),
             alg_name: action_name,
             args,
         },
@@ -151,10 +151,10 @@ SimpleExpression: algorithm::Expression = {
     "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
     <type_name: Ident> "." <table_name: Ident>
         "." <init_name: Ident> "(" <args: Comma<Expression>> ")"
-        => algorithm::Expression::InitEntity { <> },
-    <entity_name: Ident> "."
+        => algorithm::Expression::InitObject { <> },
+    <object_name: Ident> "."
         <action_name: Ident> "(" <args: Comma<Expression>> ")"
-        => algorithm::Expression::ExecEntity { <> },
+        => algorithm::Expression::ExecObject { <> },
     "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
     "game" "." <function_name: Ident> "(" <args: Comma<Expression>> ")"
         => algorithm::Expression::ExternCall { <> },
