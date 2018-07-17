@@ -11,7 +11,7 @@ pub type EventQueue = event_queue::EventQueue<Event>;
 pub struct EventHandle(pub Time, pub usize);
 
 pub struct Event {
-    pub entity: data::Entity,
+    pub object: data::Object,
 
     pub table_name: String,
     pub action_name: String,
@@ -23,7 +23,7 @@ impl Event {
         algorithm::execute_action(
             game,
 
-            self.entity,
+            self.object,
             self.table_name,
             self.action_name,
 

@@ -1,21 +1,21 @@
 use prelude::*;
 
-use sulphate_lib::event_queue;
-
 use algorithm;
 use data;
 use event;
 use item;
 
+pub use sulphate_lib::event_queue::Simulation;
+
 pub struct FlopInstance {
     pub totem: Totem,
     pub event_queue: event::EventQueue,
-    pub types: Dict<item::EntityType>,
+    pub types: Dict<item::ObjectType>,
 }
 
 impl FlopInstance {
     pub fn invoke_next(self: &mut Self) {
-        event_queue::Simulation::invoke_next(self);
+        Simulation::invoke_next(self);
     }
 
     pub fn run<G: Flop>(
@@ -35,7 +35,7 @@ impl FlopInstance {
         );
 
         while !game.event_queue().is_empty() {
-            event_queue::Simulation::invoke_next(game);
+            Simulation::invoke_next(game);
         }
         println!("Nothing happened.");
     }
@@ -76,18 +76,18 @@ impl Flop for FlopInstance {
 pub(crate) trait FlopParts {
     fn parts(self: &mut Self) -> (
         &mut Totem,
-        &mut Dict<item::EntityType>,
+        &mut Dict<item::ObjectType>,
         &mut event::EventQueue,
     );
     fn totem(self: &mut Self) -> &mut Totem;
-    fn types(self: &mut Self) -> &mut Dict<item::EntityType>;
+    fn types(self: &mut Self) -> &mut Dict<item::ObjectType>;
     fn event_queue(self: &mut Self) -> &mut event::EventQueue;
 }
 
 impl<G: Flop> FlopParts for G {
     fn parts(self: &mut Self) -> (
         &mut Totem,
-        &mut Dict<item::EntityType>,
+        &mut Dict<item::ObjectType>,
         &mut event::EventQueue,
     ) {
         let instance: &mut FlopInstance = self.as_mut();
@@ -97,7 +97,7 @@ impl<G: Flop> FlopParts for G {
     fn totem(self: &mut Self) -> &mut Totem {
         self.parts().0
     }
-    fn types(self: &mut Self) -> &mut Dict<item::EntityType> {
+    fn types(self: &mut Self) -> &mut Dict<item::ObjectType> {
         self.parts().1
     }
     fn event_queue(self: &mut Self) -> &mut event::EventQueue {

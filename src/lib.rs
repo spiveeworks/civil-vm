@@ -8,11 +8,10 @@ pub mod instance;
 pub mod item;
 pub mod parser;
 pub mod table;
+pub mod load_types;
 
 pub mod prelude {
     pub use instance::Flop;
-    // Gives an unused import error, but can't be removed.
-    pub(crate) use instance::FlopParts;
 
     // Units (just Time)
     pub use sulphate_lib::Time;
