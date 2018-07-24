@@ -8,7 +8,7 @@ use parser;
 pub fn get_types(dirpath: &str) -> Dict<item::ObjectType> {
     let parser = parser::TypeParser::new();
     let paths = fs::read_dir(dirpath)
-        .expect("Failed to open \"data\" directory");
+        .expect("Failed to open directory");
 
     let mut types = Dict::new();
     for path in paths {

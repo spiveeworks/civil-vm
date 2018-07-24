@@ -10,6 +10,7 @@ pub use sulphate_lib::event_queue::Simulation;
 pub struct FlopInstance {
     pub totem: Totem,
     pub event_queue: event::EventQueue,
+    // object types? that's stupid
     pub types: Dict<item::ObjectType>,
 }
 
