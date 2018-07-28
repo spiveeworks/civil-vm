@@ -111,8 +111,8 @@ Statement: ast::Statement = {
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
         ast::Statement::Evaluate { <> }
     },
-    "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
-        ast::Statement::State { <> }
+    "self" "=" <Expression> ";" => {
+        ast::Statement::State(<>)
     },
     "cancel;" => ast::Statement::CancelWait,
 };
@@ -127,12 +127,13 @@ Expression: ast::Expression = {
 
 SimpleExpression: ast::Expression = {
     "(" <Expression> ")",
-    <Ident> => ast::Expression::MoveVar(<>),
-    "copy" "(" <Ident> ")" => ast::Expression::CloneVar(<>),
+    <Ident> => ast::Expression::Var(<>),
     <names: Path<Ident>> "(" <args: Comma<Expression>> ")"
         => ast::Expression::Method { <> },
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
+    <name: Ident> "{" <fields: Comma<Assignment<Expression>>> "}"
+        => ast::Expression::Data { <> },
 };
 
 SumExpression: ast::Expression = {

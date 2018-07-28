@@ -34,10 +34,7 @@ pub enum Statement {
         expressions: Vec<Expression>,
         results: Vec<String>,
     },
-    State {
-        name: String,
-        terms: Dict<String>,
-    },
+    State(Expression),
     Wait(Expression),
     CancelWait,
     SetAdd {
@@ -58,8 +55,7 @@ pub enum Statement {
 
 #[derive(Clone)]
 pub enum Expression {
-    MoveVar(String),
-    CloneVar(String),
+    Var(String),
     InitObject {
         type_name: String,
         table_name: String,
@@ -81,6 +77,11 @@ pub enum Expression {
         object: Box<Expression>,
     },
     SelfObject,
+
+    Data {
+        name: String,
+        fields: Dict<Expression>,
+    },
 
     Const(f64),
     Add(Box<Expression>, Box<Expression>),
@@ -251,7 +252,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut result = evaluate_expressions(
                     game,
                     exprs,
-                    &mut vars,
+                    &vars,
                     &object,
                 ).into_iter();
                 print!("Debug: {}", result.next().unwrap().num());
@@ -270,7 +271,7 @@ pub fn execute_algorithm<G: Flop>(
                     let time_ = evaluate_expression(
                         game,
                         time,
-                        &mut vars,
+                        &vars,
                         &object,
                     )[0].num();
                     let time = Time::try_from(time_)
@@ -304,7 +305,7 @@ pub fn execute_algorithm<G: Flop>(
                 let vals = evaluate_expressions(
                     game,
                     args,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
 
@@ -336,25 +337,30 @@ pub fn execute_algorithm<G: Flop>(
                 let result_vals = evaluate_expressions(
                     game,
                     expressions,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 for (name, val) in results.iter().zip(result_vals) {
                     vars.insert(name.clone(), val);
                 }
             },
-            Statement::State {
-                ref name,
-                ref terms,
-            } => {
+            Statement::State(ref state) => {
                 if has_state {
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let object = object.borrow_mut(game.totem());
+                let vals = evaluate_expression(
+                    game,
+                    state,
+                    &vars,
+                    &object,
+                );
+                assert!(vals.len() == 1, "Too much stuff for object state");
+                let (state_name, data) = {vals}.pop().unwrap().unwrap_data();
 
-                object.state_name = name.clone();
-                object.data = extract(&mut vars, terms);
+                let object = object.borrow_mut(game.totem());
+                object.state_name = state_name;
+                object.data = data;
 
                 has_state = true;
             }
@@ -363,7 +369,7 @@ pub fn execute_algorithm<G: Flop>(
                 let time_ = evaluate_expression(
                     game,
                     time,
-                    &mut vars,
+                    &vars,
                     &object,
                 )[0].num();
                 let time = Time::try_from(time_)
@@ -400,7 +406,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_add,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 let ent = vals.remove(0);
@@ -414,7 +420,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_remove,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 let ent = vals.remove(0);
@@ -509,7 +515,7 @@ fn wait(
 fn evaluate_expression<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
@@ -528,7 +534,7 @@ fn evaluate_expression<G: Flop>(
 fn evaluate_expressions<G: Flop>(
     game: &mut G,
     expressions: &Vec<Expression>,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
@@ -549,17 +555,13 @@ fn evaluate_expressions<G: Flop>(
 fn evaluate_expression_into<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
     result: &mut Vec<data::Field>,
 ) {
     use self::Expression::*;
     match *expression {
-        MoveVar(ref name) => {
-            let val = vars.remove(name).expect("Variable not in scope");
-            result.push(val);
-        },
-        CloneVar(ref name) => {
+        Var(ref name) => {
             let val = vars[name].clone();
             result.push(val);
         },
@@ -655,6 +657,27 @@ fn evaluate_expression_into<G: Flop>(
         },
         SelfObject => {
             result.push(data::Field::TRef(Strong::clone(object)));
+        },
+
+        Data { ref name, ref fields } => {
+            // TODO make this another kind of eval function?
+            // might make errors even worse
+            let mut eval = |expr| {
+                let result = evaluate_expression(
+                    game,
+                    expr,
+                    vars,
+                    object,
+                );
+                assert!(result.len() == 1,
+                    "Data initializers expect one value");
+                {result}.pop().unwrap()
+            };
+            let data = fields
+                 .iter()
+                 .map(|(fname, val)| (fname.clone(), eval(val)))
+                 .collect();
+            result.push(data::Field::Data(name.clone(), data));
         },
 
         Const(x) => {
