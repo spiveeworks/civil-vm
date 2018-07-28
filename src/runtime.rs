@@ -34,10 +34,7 @@ pub enum Statement {
         expressions: Vec<Expression>,
         results: Vec<String>,
     },
-    State {
-        name: String,
-        terms: Dict<String>,
-    },
+    State(Expression),
     Wait(Expression),
     CancelWait,
     SetAdd {
@@ -80,6 +77,11 @@ pub enum Expression {
         object: Box<Expression>,
     },
     SelfObject,
+
+    Data {
+        name: String,
+        fields: Dict<Expression>,
+    },
 
     Const(f64),
     Add(Box<Expression>, Box<Expression>),
@@ -342,18 +344,23 @@ pub fn execute_algorithm<G: Flop>(
                     vars.insert(name.clone(), val);
                 }
             },
-            Statement::State {
-                ref name,
-                ref terms,
-            } => {
+            Statement::State(ref state) => {
                 if has_state {
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let object = object.borrow_mut(game.totem());
+                let vals = evaluate_expression(
+                    game,
+                    state,
+                    &vars,
+                    &object,
+                );
+                assert!(vals.len() == 1, "Too much stuff for object state");
+                let (state_name, data) = {vals}.pop().unwrap().unwrap_data();
 
-                object.state_name = name.clone();
-                object.data = extract(&vars, terms);
+                let object = object.borrow_mut(game.totem());
+                object.state_name = state_name;
+                object.data = data;
 
                 has_state = true;
             }
@@ -650,6 +657,27 @@ fn evaluate_expression_into<G: Flop>(
         },
         SelfObject => {
             result.push(data::Field::TRef(Strong::clone(object)));
+        },
+
+        Data { ref name, ref fields } => {
+            // TODO make this another kind of eval function?
+            // might make errors even worse
+            let mut eval = |expr| {
+                let result = evaluate_expression(
+                    game,
+                    expr,
+                    vars,
+                    object,
+                );
+                assert!(result.len() == 1,
+                    "Data initializers expect one value");
+                {result}.pop().unwrap()
+            };
+            let data = fields
+                 .iter()
+                 .map(|(fname, val)| (fname.clone(), eval(val)))
+                 .collect();
+            result.push(data::Field::Data(name.clone(), data));
         },
 
         Const(x) => {

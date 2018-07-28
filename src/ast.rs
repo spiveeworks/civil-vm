@@ -1,5 +1,3 @@
-use prelude::*;
-
 use runtime;
 
 pub struct Algorithm {
@@ -16,11 +14,7 @@ pub enum Statement {
         expressions: Vec<Expression>,
         results: Vec<String>,
     },
-    // self = Data {} once data expressions exist?
-    State {
-        name: String,
-        terms: Dict<String>,
-    },
+    State(Expression),
     // TODO just overwrite state instead of explicitly cancelling?
     CancelWait,
     SetIterate {
@@ -39,6 +33,10 @@ pub enum Expression {
         args: Vec<Expression>,
     },
     SelfObject,
+    Data {
+        name: String,
+        fields: Vec<(String, Expression)>,
+    },
 
     Const(f64),
     Add(Box<Expression>, Box<Expression>),
@@ -78,13 +76,7 @@ fn convert_statement(step: Statement) -> runtime::Statement {
                 results,
             }
         },
-        State {
-            name,
-            terms,
-        } => runtime::Statement::State {
-            name,
-            terms,
-        },
+        State(state) => runtime::Statement::State(convert_expression(state)),
         CancelWait => runtime::Statement::CancelWait,
         SetIterate {
             var_name,
@@ -184,6 +176,13 @@ fn convert_expression(val: Expression) -> runtime::Expression {
             }
         },
         SelfObject => runtime::Expression::SelfObject,
+        Data { name, fields } => {
+            let fields = fields
+                .into_iter()
+                .map(|(name, val)| (name, convert_expression(val)))
+                .collect();
+            runtime::Expression::Data { name, fields }
+        },
 
         Const(f64) => runtime::Expression::Const(f64),
         Add(l, r) => runtime::Expression::Add(box_convert(l), box_convert(r)),

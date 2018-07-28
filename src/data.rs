@@ -17,7 +17,7 @@ pub enum Field {
     Num(f64),
     VRef(ObjectRef),
     TRef(Object),
-    // Data(DataTerm),
+    Data(String, Data),
     // Weak(WeakRef),
     // List(???),
     Set(ObjectSet),
@@ -56,6 +56,13 @@ impl Field {
         match self {
             Field::VRef(result) => result,
             _ => panic!("Expected object"),
+        }
+    }
+
+    pub fn unwrap_data(self: Self) -> (String, Data) {
+        match self {
+            Field::Data(name, data) => (name, data),
+            _ => panic!("Expected data"),
         }
     }
 
