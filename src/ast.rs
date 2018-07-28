@@ -11,31 +11,18 @@ pub type TablePath = runtime::TablePath;
 
 #[derive(Clone)]
 pub enum Statement {
-    Debug(String),
-    DebugNums(Vec<Expression>),
-    GotoAlg {
-        table: TablePath,
-        alg_name: String,
-        args: Vec<Expression>,
-    },
-    Assign {
+    Bang,
+    Evaluate {
         expressions: Vec<Expression>,
         results: Vec<String>,
     },
+    // self = Data {} once data expressions exist?
     State {
         name: String,
         terms: Dict<String>,
     },
-    Wait(Expression),
+    // TODO just overwrite state instead of explicitly cancelling?
     CancelWait,
-    SetAdd {
-        set_name: String,
-        to_add: Expression,
-    },
-    SetRemove {
-        set_name: String,
-        to_remove: Expression,
-    },
     SetIterate {
         var_name: String,
         set_name: String,
@@ -48,20 +35,8 @@ pub enum Statement {
 pub enum Expression {
     MoveVar(String),
     CloneVar(String),
-    InitObject {
-        type_name: String,
-        table_name: String,
-        init_name: String,
-        args: Vec<Expression>,
-    },
-    ExecObject {
-        object_name: String,
-        action_name: String,
-        args: Vec<Expression>,
-    },
-    InitSet,
-    ExternCall {
-        function_name: String,
+    Method {
+        names: Vec<String>,
         args: Vec<Expression>,
     },
 
@@ -82,25 +57,26 @@ pub fn convert_algorithm(alg: Algorithm) -> runtime::Algorithm {
 fn convert_statement(step: Statement) -> runtime::Statement {
     use self::Statement::*;
     match step {
-        Debug(msg) => runtime::Statement::Debug(msg),
-        DebugNums(nums) => runtime::Statement::DebugNums(
-            convert_expressions(nums)
-        ),
-        GotoAlg {
-            table,
-            alg_name,
-            args,
-        } => runtime::Statement::GotoAlg {
-            table,
-            alg_name,
-            args: convert_expressions(args),
-        },
-        Assign {
-            expressions,
-            results,
-        } => runtime::Statement::Assign {
-            expressions: convert_expressions(expressions),
-            results,
+        Bang => runtime::Statement::Debug("BANG".into()),
+        Evaluate { mut expressions, results } => {
+            if results.len() == 0 {
+                if expressions.len() == 1 {
+                    use self::Expression::Method;
+                    if let Method { names, args } = &mut expressions[0] {
+                        let result = convert_simple_statement(names, args);
+                        if let Some(result) = result {
+                            return result;
+                        }
+                    }
+                } else {
+                    panic!("Separate statements with semicolon not comma");
+                }
+            }
+
+            runtime::Statement::Evaluate {
+                expressions: convert_expressions(expressions),
+                results,
+            }
         },
         State {
             name,
@@ -109,22 +85,7 @@ fn convert_statement(step: Statement) -> runtime::Statement {
             name,
             terms,
         },
-        Wait(expr) => runtime::Statement::Wait(convert_expression(expr)),
         CancelWait => runtime::Statement::CancelWait,
-        SetAdd {
-            set_name,
-            to_add,
-        } => runtime::Statement::SetAdd {
-            set_name,
-            to_add: convert_expression(to_add),
-        },
-        SetRemove {
-            set_name,
-            to_remove,
-        } => runtime::Statement::SetRemove {
-            set_name,
-            to_remove: convert_expression(to_remove),
-        },
         SetIterate {
             var_name,
             set_name,
@@ -138,6 +99,41 @@ fn convert_statement(step: Statement) -> runtime::Statement {
     }
 }
 
+// if this returns `None` then it didn't modify the inputs
+fn convert_simple_statement(names: &mut Vec<String>, args: &mut Vec<Expression>)
+    -> Option<runtime::Statement>
+{
+    if names.len() == 1 {
+        if names[0] == "print" {
+            let args = ::std::mem::replace(args, Vec::new());
+            return Some(runtime::Statement::DebugNums(
+                convert_expressions(args)
+            ));
+        } else if names[0] == "wait" {
+            assert!(args.len() == 1, "wait expects 1 argument");
+            let arg = args.pop().unwrap();
+            return Some(runtime::Statement::Wait(convert_expression(arg)));
+        }
+    } else if names.len() == 2 {
+        if names[1] == "add" {
+            assert!(args.len() == 1, "Set.add expects 1 argument");
+            let arg = args.pop().unwrap();
+            return Some(runtime::Statement::SetAdd {
+                set_name: names[0].clone(),
+                to_add: convert_expression(arg),
+            });
+        } else if names[1] == "remove" {
+            assert!(args.len() == 1, "Set.remove expects 1 argument");
+            let arg = args.pop().unwrap();
+            return Some(runtime::Statement::SetAdd {
+                set_name: names[0].clone(),
+                to_add: convert_expression(arg),
+            });
+        }
+    }
+    None
+}
+
 fn convert_expressions(vals: Vec<Expression>) -> Vec<runtime::Expression> {
     vals.into_iter()
         .map(convert_expression)
@@ -149,33 +145,37 @@ fn convert_expression(val: Expression) -> runtime::Expression {
     match val {
         MoveVar(name) => runtime::Expression::MoveVar(name),
         CloneVar(name) => runtime::Expression::CloneVar(name),
-        InitObject {
-            type_name,
-            table_name,
-            init_name,
+        Method {
+            names,
             args,
-        } => runtime::Expression::InitObject {
-            type_name,
-            table_name,
-            init_name,
-            args: convert_expressions(args),
-        },
-        ExecObject {
-            object_name,
-            action_name,
-            args,
-        } => runtime::Expression::ExecObject {
-            object_name,
-            action_name,
-            args: convert_expressions(args),
-        },
-        InitSet => runtime::Expression::InitSet,
-        ExternCall {
-            function_name,
-            args,
-        } => runtime::Expression::ExternCall {
-            function_name,
-            args: convert_expressions(args),
+        } => {
+            let args = convert_expressions(args);
+            if names.len() == 2 {
+                if names[0] == "Set" && names[1] == "new" {
+                    assert!(args.len() == 0, "Set.new expects no arguments");
+                    runtime::Expression::InitSet
+                } else if names[0] == "game" {
+                    runtime::Expression::ExternCall {
+                        function_name: names[1].clone(),
+                        args,
+                    }
+                } else {
+                    runtime::Expression::ExecObject {
+                        object_name: names[0].clone(),
+                        action_name: names[1].clone(),
+                        args,
+                    }
+                }
+            } else if names.len() == 3 {
+                runtime::Expression::InitObject {
+                    type_name: names[0].clone(),
+                    table_name: names[1].clone(),
+                    init_name: names[2].clone(),
+                    args,
+                }
+            } else {
+                panic!("Too much stuff");
+            }
         },
 
         Const(f64) => runtime::Expression::Const(f64),
