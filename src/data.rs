@@ -7,14 +7,16 @@ use item;
 
 pub enum FieldType {
     Num,
-    Ref(item::TableIdent),
+    VRef(item::TableIdent),
+    TRef(String),
 }
 
 // we could use a union
 #[derive(Clone)]
 pub enum Field {
     Num(f64),
-    Object(ObjectRef),
+    VRef(ObjectRef),
+    TRef(Object),
     // Data(DataTerm),
     // Weak(WeakRef),
     // List(???),
@@ -29,16 +31,30 @@ impl Field {
         }
     }
 
-    pub fn object(self: &Self) -> &ObjectRef {
+    pub fn tref(self: &Self) -> &Object {
         match *self {
-            Field::Object(ref result) => result,
+            Field::TRef(ref result) => result,
             _ => panic!("Expected object"),
         }
     }
 
-    pub fn unwrap_object(self: Self) -> ObjectRef {
+    pub fn vref(self: &Self) -> &ObjectRef {
+        match *self {
+            Field::VRef(ref result) => result,
+            _ => panic!("Expected object"),
+        }
+    }
+
+    pub fn unwrap_tref(self: Self) -> Object {
         match self {
-            Field::Object(result) => result,
+            Field::TRef(result) => result,
+            _ => panic!("Expected object"),
+        }
+    }
+
+    pub fn unwrap_vref(self: Self) -> ObjectRef {
+        match self {
+            Field::VRef(result) => result,
             _ => panic!("Expected object"),
         }
     }
@@ -93,7 +109,7 @@ impl ObjectData {
 #[derive(Clone)]
 pub struct ObjectRef {
     pub table: String,
-    pub data: Strong<ObjectData>,
+    pub data: Object,
 }
 
 

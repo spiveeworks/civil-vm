@@ -5,8 +5,6 @@ Root := RootRole { init = init }
 init := initializer() {
     self = Null {};
     looper = Looper.Looper.create();
-    looper_arg = copy(looper);
-    BANG;
-    looper.loop(looper_arg);
+    looper.loop();
 }
 

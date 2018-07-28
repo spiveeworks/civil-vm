@@ -159,6 +159,11 @@ SimpleExpression: algorithm::Expression = {
     "game" "." <function_name: Ident> "(" <args: Comma<Expression>> ")"
         => algorithm::Expression::ExternCall { <> },
     Number => algorithm::Expression::Const(<>),
+    "self" => algorithm::Expression::SelfObject,
+    <interface_name: Ident> "(" <object: Expression> ")" => {
+        let object = Box::new(object);
+        algorithm::Expression::VirtualizeObject { interface_name, object }
+    },
 };
 
 SumExpression: algorithm::Expression = {

@@ -9,13 +9,13 @@ create := initializer() {
     self = Null {};
 }
 
-loop := action(this) {
+loop := action() {
     cancel;
-    self = Wait { this = this };
+    self = Wait {};
     wait(1);
     self = Null {};
     BANG;
-    this_arg = copy(this);
-    this.loop(this_arg);
+    this = Looper(self);
+    this.loop();
 }
 
