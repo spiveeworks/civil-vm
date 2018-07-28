@@ -23,20 +23,18 @@ pub enum TablePath {
 pub enum Statement {
     Debug(String),
     DebugNums(Vec<Expression>),
+    // TODO self.method() and Type.initializer stuff
     GotoAlg {
         table: TablePath,
         alg_name: String,
         args: Vec<Expression>,
     },
-    Assign {
+    Evaluate {
         // multiple expressions all so that x, y = y, x is possible :P
         expressions: Vec<Expression>,
         results: Vec<String>,
     },
-    State {
-        name: String,
-        terms: Dict<String>,
-    },
+    State(Expression),
     Wait(Expression),
     CancelWait,
     SetAdd {
@@ -57,8 +55,7 @@ pub enum Statement {
 
 #[derive(Clone)]
 pub enum Expression {
-    MoveVar(String),
-    CloneVar(String),
+    Var(String),
     InitObject {
         type_name: String,
         table_name: String,
@@ -74,6 +71,16 @@ pub enum Expression {
     ExternCall {
         function_name: String,
         args: Vec<Expression>,
+    },
+    VirtualizeObject {
+        interface_name: String,
+        object: Box<Expression>,
+    },
+    SelfObject,
+
+    Data {
+        name: String,
+        fields: Dict<Expression>,
     },
 
     Const(f64),
@@ -245,7 +252,8 @@ pub fn execute_algorithm<G: Flop>(
                 let mut result = evaluate_expressions(
                     game,
                     exprs,
-                    &mut vars,
+                    &vars,
+                    &object,
                 ).into_iter();
                 print!("Debug: {}", result.next().unwrap().num());
                 for x in result {
@@ -263,7 +271,8 @@ pub fn execute_algorithm<G: Flop>(
                     let time_ = evaluate_expression(
                         game,
                         time,
-                        &mut vars,
+                        &vars,
+                        &object,
                     )[0].num();
                     let time = Time::try_from(time_)
                         .expect("Num Error");
@@ -284,7 +293,7 @@ pub fn execute_algorithm<G: Flop>(
 
                 let (new_object, new_table_name, is_initalizer) = match table {
                     TablePath::Virtual(ref ent_name) => {
-                        let ent_ref = vars[ent_name].object().clone();
+                        let ent_ref = vars[ent_name].vref().clone();
                         (ent_ref.data, ent_ref.table, false)
                     },
                     TablePath::Static(ref type_name, ref table_name) => {
@@ -296,7 +305,8 @@ pub fn execute_algorithm<G: Flop>(
                 let vals = evaluate_expressions(
                     game,
                     args,
-                    &mut vars,
+                    &vars,
+                    &object,
                 );
 
                 let (totem, types, _) = game.parts();
@@ -320,31 +330,37 @@ pub fn execute_algorithm<G: Flop>(
 
                 break;
             },
-            Statement::Assign {
+            Statement::Evaluate {
                 ref results,
                 ref expressions,
             } => {
                 let result_vals = evaluate_expressions(
                     game,
                     expressions,
-                    &mut vars,
+                    &vars,
+                    &object,
                 );
                 for (name, val) in results.iter().zip(result_vals) {
                     vars.insert(name.clone(), val);
                 }
             },
-            Statement::State {
-                ref name,
-                ref terms,
-            } => {
+            Statement::State(ref state) => {
                 if has_state {
                     panic!("Tried to overwrite state without cancelling");
                 }
 
-                let object = object.borrow_mut(game.totem());
+                let vals = evaluate_expression(
+                    game,
+                    state,
+                    &vars,
+                    &object,
+                );
+                assert!(vals.len() == 1, "Too much stuff for object state");
+                let (state_name, data) = {vals}.pop().unwrap().unwrap_data();
 
-                object.state_name = name.clone();
-                object.data = extract(&mut vars, terms);
+                let object = object.borrow_mut(game.totem());
+                object.state_name = state_name;
+                object.data = data;
 
                 has_state = true;
             }
@@ -353,7 +369,8 @@ pub fn execute_algorithm<G: Flop>(
                 let time_ = evaluate_expression(
                     game,
                     time,
-                    &mut vars,
+                    &vars,
+                    &object,
                 )[0].num();
                 let time = Time::try_from(time_)
                     .expect("Num Error");
@@ -389,10 +406,11 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_add,
-                    &mut vars,
+                    &vars,
+                    &object,
                 );
                 let ent = vals.remove(0);
-                let key = data::ObjectKey(ent.unwrap_object());
+                let key = data::ObjectKey(ent.unwrap_vref());
                 vars.get_mut(set_name)
                     .expect("Set not found")
                     .set()
@@ -402,10 +420,11 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_remove,
-                    &mut vars,
+                    &vars,
+                    &object,
                 );
                 let ent = vals.remove(0);
-                let key = data::ObjectKey(ent.unwrap_object());
+                let key = data::ObjectKey(ent.unwrap_vref());
                 vars.get_mut(set_name)
                     .expect("Set not found")
                     .set()
@@ -420,7 +439,7 @@ pub fn execute_algorithm<G: Flop>(
 
                 let set = vars.remove(set_name).expect("no set").unwrap_set();
                 for (ent, ()) in &set {
-                    let val = data::Field::Object(ent.0.clone());
+                    let val = data::Field::VRef(ent.0.clone());
                     vars.insert(var_name.clone(), val);
 
                     let result = execute_algorithm(
@@ -496,7 +515,8 @@ fn wait(
 fn evaluate_expression<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
+    object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
 
@@ -504,6 +524,7 @@ fn evaluate_expression<G: Flop>(
         game,
         expression,
         vars,
+        object,
         &mut result,
     );
 
@@ -513,7 +534,8 @@ fn evaluate_expression<G: Flop>(
 fn evaluate_expressions<G: Flop>(
     game: &mut G,
     expressions: &Vec<Expression>,
-    vars: &mut data::Data,
+    vars: &data::Data,
+    object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
 
@@ -522,6 +544,7 @@ fn evaluate_expressions<G: Flop>(
             game,
             expression,
             vars,
+            object,
             &mut result,
         );
     }
@@ -532,16 +555,13 @@ fn evaluate_expressions<G: Flop>(
 fn evaluate_expression_into<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
+    object: &data::Object,
     result: &mut Vec<data::Field>,
 ) {
     use self::Expression::*;
     match *expression {
-        MoveVar(ref name) => {
-            let val = vars.remove(name).expect("Variable not in scope");
-            result.push(val);
-        },
-        CloneVar(ref name) => {
+        Var(ref name) => {
             let val = vars[name].clone();
             result.push(val);
         },
@@ -555,6 +575,7 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 args,
                 vars,
+                object,
             );
             let result_ref = execute_init(
                 game,
@@ -564,7 +585,7 @@ fn evaluate_expression_into<G: Flop>(
                 args
             );
 
-            let result_term = data::Field::Object(result_ref);
+            let result_term = data::Field::VRef(result_ref);
             result.push(result_term);
         },
         ExecObject {
@@ -572,19 +593,20 @@ fn evaluate_expression_into<G: Flop>(
             ref action_name,
             ref args,
         } => {
-            let object = vars[object_name].clone().unwrap_object();
+            let vref = vars[object_name].clone().unwrap_vref();
             let args = evaluate_expressions(
                 game,
                 args,
                 vars,
+                &object,
             );
             let args = {
-                let type_name = &object.data.borrow(game.totem()).type_name;
+                let type_name = &vref.data.borrow(game.totem()).type_name;
                 bind_args(
                     game.types(),
 
                     type_name,
-                    &object.table,
+                    &vref.table,
                     action_name,
 
                     args,
@@ -592,8 +614,8 @@ fn evaluate_expression_into<G: Flop>(
             };
             let result_vals = execute_action(
                 game,
-                object.data,
-                object.table,
+                vref.data,
+                vref.table,
                 action_name.clone(),
                 Some(args),
                 0,
@@ -611,11 +633,51 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 args,
                 vars,
+                object,
             );
 
             let results = game.extern_call(function_name, args);
 
             result.extend(results);
+        },
+
+        VirtualizeObject { ref interface_name, object: ref tref_expr } => {
+            let mut tref = evaluate_expression(
+                game,
+                tref_expr,
+                vars,
+                &object,
+            );
+            assert!(tref.len() == 1,
+                "Tried to virtualize multiple values");
+            let table = interface_name.clone();
+            let data = tref.pop().unwrap().unwrap_tref();
+            let vref = data::ObjectRef { table, data };
+            result.push(data::Field::VRef(vref));
+        },
+        SelfObject => {
+            result.push(data::Field::TRef(Strong::clone(object)));
+        },
+
+        Data { ref name, ref fields } => {
+            // TODO make this another kind of eval function?
+            // might make errors even worse
+            let mut eval = |expr| {
+                let result = evaluate_expression(
+                    game,
+                    expr,
+                    vars,
+                    object,
+                );
+                assert!(result.len() == 1,
+                    "Data initializers expect one value");
+                {result}.pop().unwrap()
+            };
+            let data = fields
+                 .iter()
+                 .map(|(fname, val)| (fname.clone(), eval(val)))
+                 .collect();
+            result.push(data::Field::Data(name.clone(), data));
         },
 
         Const(x) => {
@@ -626,11 +688,13 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 &**x,
                 vars,
+                object,
             );
             let mut y = evaluate_expression(
                 game,
                 &**y,
                 vars,
+                object,
             );
 
             assert!(x.len() == 1, "Num operation on multiple values");
@@ -643,11 +707,13 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 &**x,
                 vars,
+                object,
             );
             let mut y = evaluate_expression(
                 game,
                 &**y,
                 vars,
+                object,
             );
 
             assert!(x.len() == 1, "Num operation on multiple values");
@@ -660,11 +726,13 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 &**x,
                 vars,
+                object,
             );
             let mut y = evaluate_expression(
                 game,
                 &**y,
                 vars,
+                object,
             );
 
             assert!(x.len() == 1, "Num operation on multiple values");
@@ -677,11 +745,13 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 &**x,
                 vars,
+                object,
             );
             let mut y = evaluate_expression(
                 game,
                 &**y,
                 vars,
+                object,
             );
 
             assert!(x.len() == 1, "Num operation on multiple values");
@@ -694,11 +764,13 @@ fn evaluate_expression_into<G: Flop>(
                 game,
                 &**x,
                 vars,
+                object,
             );
             let mut y = evaluate_expression(
                 game,
                 &**y,
                 vars,
+                object,
             );
 
             assert!(x.len() == 1, "Num operation on multiple values");
