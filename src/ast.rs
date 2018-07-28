@@ -33,8 +33,7 @@ pub enum Statement {
 
 #[derive(Clone)]
 pub enum Expression {
-    MoveVar(String),
-    CloneVar(String),
+    Var(String),
     Method {
         names: Vec<String>,
         args: Vec<Expression>,
@@ -144,8 +143,7 @@ fn convert_expressions(vals: Vec<Expression>) -> Vec<runtime::Expression> {
 fn convert_expression(val: Expression) -> runtime::Expression {
     use self::Expression::*;
     match val {
-        MoveVar(name) => runtime::Expression::MoveVar(name),
-        CloneVar(name) => runtime::Expression::CloneVar(name),
+        Var(name) => runtime::Expression::Var(name),
         Method {
             names,
             args,

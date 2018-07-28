@@ -58,8 +58,7 @@ pub enum Statement {
 
 #[derive(Clone)]
 pub enum Expression {
-    MoveVar(String),
-    CloneVar(String),
+    Var(String),
     InitObject {
         type_name: String,
         table_name: String,
@@ -251,7 +250,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut result = evaluate_expressions(
                     game,
                     exprs,
-                    &mut vars,
+                    &vars,
                     &object,
                 ).into_iter();
                 print!("Debug: {}", result.next().unwrap().num());
@@ -270,7 +269,7 @@ pub fn execute_algorithm<G: Flop>(
                     let time_ = evaluate_expression(
                         game,
                         time,
-                        &mut vars,
+                        &vars,
                         &object,
                     )[0].num();
                     let time = Time::try_from(time_)
@@ -304,7 +303,7 @@ pub fn execute_algorithm<G: Flop>(
                 let vals = evaluate_expressions(
                     game,
                     args,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
 
@@ -336,7 +335,7 @@ pub fn execute_algorithm<G: Flop>(
                 let result_vals = evaluate_expressions(
                     game,
                     expressions,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 for (name, val) in results.iter().zip(result_vals) {
@@ -354,7 +353,7 @@ pub fn execute_algorithm<G: Flop>(
                 let object = object.borrow_mut(game.totem());
 
                 object.state_name = name.clone();
-                object.data = extract(&mut vars, terms);
+                object.data = extract(&vars, terms);
 
                 has_state = true;
             }
@@ -363,7 +362,7 @@ pub fn execute_algorithm<G: Flop>(
                 let time_ = evaluate_expression(
                     game,
                     time,
-                    &mut vars,
+                    &vars,
                     &object,
                 )[0].num();
                 let time = Time::try_from(time_)
@@ -400,7 +399,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_add,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 let ent = vals.remove(0);
@@ -414,7 +413,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut vals = evaluate_expression(
                     game,
                     to_remove,
-                    &mut vars,
+                    &vars,
                     &object,
                 );
                 let ent = vals.remove(0);
@@ -509,7 +508,7 @@ fn wait(
 fn evaluate_expression<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
@@ -528,7 +527,7 @@ fn evaluate_expression<G: Flop>(
 fn evaluate_expressions<G: Flop>(
     game: &mut G,
     expressions: &Vec<Expression>,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
@@ -549,17 +548,13 @@ fn evaluate_expressions<G: Flop>(
 fn evaluate_expression_into<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &mut data::Data,
+    vars: &data::Data,
     object: &data::Object,
     result: &mut Vec<data::Field>,
 ) {
     use self::Expression::*;
     match *expression {
-        MoveVar(ref name) => {
-            let val = vars.remove(name).expect("Variable not in scope");
-            result.push(val);
-        },
-        CloneVar(ref name) => {
+        Var(ref name) => {
             let val = vars[name].clone();
             result.push(val);
         },
