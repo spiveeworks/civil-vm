@@ -2,8 +2,8 @@ extern crate flop;
 
 use flop::prelude::*;
 
-use flop::instance::FlopInstance;
 use flop::event::EventQueue;
+use flop::instance::FlopInstance;
 use flop::load_types::get_types;
 
 fn main() {

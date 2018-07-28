@@ -1,14 +1,15 @@
 extern crate sulphate_lib;
 extern crate totem_cell;
 
-pub mod algorithm;
+pub mod ast;
 pub mod data;
 pub mod event;
 pub mod instance;
 pub mod item;
-pub mod parser;
-pub mod table;
 pub mod load_types;
+pub mod parser;
+pub mod runtime;
+pub mod table;
 
 pub mod prelude {
     pub use instance::Flop;
