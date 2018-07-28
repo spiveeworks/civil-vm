@@ -1,9 +1,9 @@
 use prelude::*;
 
-use algorithm;
 use data;
 use event;
 use item;
+use runtime;
 
 pub use sulphate_lib::event_queue::Simulation;
 
@@ -26,7 +26,7 @@ impl FlopInstance {
         root_table: String,
         init: String,
     ) {
-        let _root = algorithm::execute_init(
+        let _root = runtime::execute_init(
             game,
 
             root_type,

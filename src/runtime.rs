@@ -29,7 +29,7 @@ pub enum Statement {
         alg_name: String,
         args: Vec<Expression>,
     },
-    Assign {
+    Evaluate {
         // multiple expressions all so that x, y = y, x is possible :P
         expressions: Vec<Expression>,
         results: Vec<String>,
@@ -329,7 +329,7 @@ pub fn execute_algorithm<G: Flop>(
 
                 break;
             },
-            Statement::Assign {
+            Statement::Evaluate {
                 ref results,
                 ref expressions,
             } => {

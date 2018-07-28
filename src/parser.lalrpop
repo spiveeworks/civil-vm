@@ -1,8 +1,9 @@
 use prelude::*;
 
-use algorithm;
+use ast;
 use data;
 use item;
+use runtime;
 use table;
 
 grammar;
@@ -64,126 +65,94 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //  Algorithms
 //
 
-Initializer: (String, algorithm::Algorithm) = {
+Initializer: (String, runtime::Algorithm) = {
     <Ident> ":=" "initializer" <Algorithm>,
 };
 
-Action: (String, algorithm::Algorithm) = {
+Action: (String, runtime::Algorithm) = {
     <Ident> ":=" "action" <Algorithm>,
 };
 
-Algorithm: algorithm::Algorithm = {
+Algorithm: runtime::Algorithm = {
     "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
-        algorithm::Algorithm { <> }
+        ast::convert_algorithm(ast::Algorithm { <> })
     },
 };
 
-Blocks: Vec<algorithm::Statement> = {
+Blocks: Vec<ast::Statement> = {
     <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
 };
 
-Block: Vec<algorithm::Statement> = {
+Block: Vec<ast::Statement> = {
     <Statement> => vec![<>],
     "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
         let mut block = block;
         let break_offset = block.len() + 1;
-        let intro = algorithm::Statement::SetIterate {
+        let intro = ast::Statement::SetIterate {
             var_name,
             set_name,
             break_offset,
         };
         block.insert(0, intro);
 
-        block.push(algorithm::Statement::Continue);
+        block.push(ast::Statement::Continue);
 
         block
     },
 };
 
-Statement: algorithm::Statement = {
-    "BANG;" => algorithm::Statement::Debug("BANG".into()),
-    "print" "(" <Comma<Expression>> ")" ";" => {
-        algorithm::Statement::DebugNums(<>)
+Statement: ast::Statement = {
+    "BANG;" => ast::Statement::Bang,
+    <Expression> ";" => {
+        let expressions = vec![<>];
+        let results = vec![];
+        ast::Statement::Evaluate { expressions, results }
     },
-    "cancel;" => algorithm::Statement::CancelWait,
     <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
-        algorithm::Statement::Assign{ <> }
+        ast::Statement::Evaluate { <> }
     },
     "self" "=" <name: Ident> "{" <terms: Dict<Ident>> "}" ";" => {
-        algorithm::Statement::State { <> }
+        ast::Statement::State { <> }
     },
-    "wait" "(" <Expression> ")" ";" => {
-        algorithm::Statement::Wait(<>)
-    },
-    <set_name: Ident> "." "add" "(" <to_add: Expression> ")" ";" => {
-        algorithm::Statement::SetAdd { <> }
-    },
-    <set_name: Ident> "." "remove" "(" <to_remove: Expression> ")" ";" => {
-        algorithm::Statement::SetRemove { <> }
-    },
-    <typ: Ident> "." <table: Ident> "." <init_name: Ident>
-        "(" <args: Comma<Expression>> ")" ";"
-        => algorithm::Statement::GotoAlg {
-            table: algorithm::TablePath::Static(typ, table),
-            alg_name: init_name,
-            args,
-        },
-    <object_name: Ident> "." <action_name: Ident>
-        "(" <args: Comma<Expression>> ")" ";"
-        => algorithm::Statement::GotoAlg {
-            table: algorithm::TablePath::Virtual(object_name),
-            alg_name: action_name,
-            args,
-        },
+    "cancel;" => ast::Statement::CancelWait,
 };
 
 //
 //  Expressions
 //
 
-Expression: algorithm::Expression = {
+Expression: ast::Expression = {
     SumExpression,
 };
 
-SimpleExpression: algorithm::Expression = {
+SimpleExpression: ast::Expression = {
     "(" <Expression> ")",
-    <Ident> => algorithm::Expression::MoveVar(<>),
-    "copy" "(" <Ident> ")" => algorithm::Expression::CloneVar(<>),
-    <type_name: Ident> "." <table_name: Ident>
-        "." <init_name: Ident> "(" <args: Comma<Expression>> ")"
-        => algorithm::Expression::InitObject { <> },
-    <object_name: Ident> "."
-        <action_name: Ident> "(" <args: Comma<Expression>> ")"
-        => algorithm::Expression::ExecObject { <> },
-    "Set" "." "new" "(" ")" => algorithm::Expression::InitSet,
-    "game" "." <function_name: Ident> "(" <args: Comma<Expression>> ")"
-        => algorithm::Expression::ExternCall { <> },
-    Number => algorithm::Expression::Const(<>),
-    "self" => algorithm::Expression::SelfObject,
-    <interface_name: Ident> "(" <object: Expression> ")" => {
-        let object = Box::new(object);
-        algorithm::Expression::VirtualizeObject { interface_name, object }
-    },
+    <Ident> => ast::Expression::MoveVar(<>),
+    "copy" "(" <Ident> ")" => ast::Expression::CloneVar(<>),
+    <names: Path<Ident>> "(" <args: Comma<Expression>> ")"
+        => ast::Expression::Method { <> },
+    Number => ast::Expression::Const(<>),
+    "self" => ast::Expression::SelfObject,
 };
 
-SumExpression: algorithm::Expression = {
+SumExpression: ast::Expression = {
     MulExpression,
     <x: SumExpression> "+" <y: MulExpression> =>
-        algorithm::Expression::Add(Box::new(x), Box::new(y)),
+        ast::Expression::Add(Box::new(x), Box::new(y)),
     <x: SumExpression> "-" <y: MulExpression> =>
-        algorithm::Expression::Sub(Box::new(x), Box::new(y)),
+        ast::Expression::Sub(Box::new(x), Box::new(y)),
 };
-MulExpression: algorithm::Expression = {
+MulExpression: ast::Expression = {
     PowExpression,
     <x: MulExpression> "*" <y: PowExpression> =>
-        algorithm::Expression::Mul(Box::new(x), Box::new(y)),
+        ast::Expression::Mul(Box::new(x), Box::new(y)),
     <x: MulExpression> "/" <y: PowExpression> =>
-        algorithm::Expression::Div(Box::new(x), Box::new(y)),
+        ast::Expression::Div(Box::new(x), Box::new(y)),
 };
-PowExpression: algorithm::Expression = {
+PowExpression: ast::Expression = {
     <SimpleExpression>,
     <x: PowExpression> "^" <y: SimpleExpression> =>
-        algorithm::Expression::Pow(Box::new(x), Box::new(y)),
+        ast::Expression::Pow(Box::new(x), Box::new(y)),
 };
 
 Number: f64 = {
@@ -206,6 +175,14 @@ Assignment<T>: (String, T) = {
 Ident: String = {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
 };
+
+Path<T>: Vec<T> = {
+    <v:(<T> ".")*> <e:T> => {
+        let mut v = v;
+        v.push(e);
+        v
+    },
+}
 
 // taken directly from
 // http://lalrpop.github.io/lalrpop/tutorial/007_macros.html

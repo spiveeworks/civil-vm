@@ -1,6 +1,6 @@
 use prelude::*;
 
-use algorithm;
+use runtime;
 use table;
 
 pub type ObjectType = Dict<table::Table>;
@@ -55,10 +55,10 @@ pub fn get_algorithm<'a>(
 
     object_type_name: &String,
     table_name: &String,
-    algorithm_name: &String,
-) -> &'a algorithm::Algorithm {
+    runtime_name: &String,
+) -> &'a runtime::Algorithm {
     let object_type = &types[object_type_name];
     let table = &object_type[table_name];
-    table.terms[algorithm_name].algorithm()
+    table.terms[runtime_name].algorithm()
 }
 

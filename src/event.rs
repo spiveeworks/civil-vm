@@ -2,8 +2,8 @@ use sulphate_lib::event_queue;
 
 use prelude::*;
 
-use algorithm;
 use data;
+use runtime;
 
 
 pub type EventQueue = event_queue::EventQueue<Event>;
@@ -20,7 +20,7 @@ pub struct Event {
 
 impl Event {
     pub fn invoke<G: Flop>(self: Self, game: &mut G) {
-        algorithm::execute_action(
+        runtime::execute_action(
             game,
 
             self.object,
