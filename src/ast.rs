@@ -25,6 +25,11 @@ pub enum Statement {
         if_branches: Vec<(Expression, Vec<Statement>)>,
         else_branch: Vec<Statement>,
     },
+    Match {
+        data: Expression,
+        arm: (String, Vec<String>, Vec<Statement>),
+        def: Vec<Statement>,
+    },
 }
 
 #[derive(Clone)]
@@ -136,6 +141,31 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
                 block.extend(rest);
                 rest = block;
             }
+            result.extend(rest);
+            return;
+        },
+        Match { data, arm, def } => {
+            let mut rest = convert_statements(def);
+            let (variant, fields, block) = arm; // {
+                let data = convert_expression(data);
+                let mut block = convert_statements(block);
+
+                let break_offset = block.len() + 2;
+                let statement = runtime::Statement::PatternBranch {
+                    data,
+                    variant,
+                    fields,
+                    break_offset,
+                };
+                block.insert(0, statement);
+
+                block.push(runtime::Statement::Jump(rest.len() + 1));
+
+                block.extend(rest);
+                rest = block;
+            // }
+
+            result.extend(rest);
             return;
         },
     };

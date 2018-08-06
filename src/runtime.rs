@@ -50,6 +50,12 @@ pub enum Statement {
         condition: Expression,
         break_offset: usize,
     },
+    PatternBranch {
+        data: Expression,
+        variant: String,
+        fields: Vec<String>,
+        break_offset: usize,
+    },
     Continue(usize),
     Jump(usize),
 }
@@ -439,6 +445,29 @@ pub fn execute_algorithm<G: Flop>(
                     &object,
                 ).bool();
                 if !condition {
+                    pc += break_offset;
+                    continue;
+                }
+            },
+            Statement::PatternBranch {
+                ref data,
+                ref variant,
+                ref fields,
+                break_offset,
+            } => {
+                let (name, mut field_vals) = evaluate_expression(
+                    game,
+                    data,
+                    &vars,
+                    &object,
+                ).unwrap_data();
+                if &name == variant {
+                    for field in fields {
+                        let val = field_vals.remove(field)
+                            .expect("field not found for match arm");
+                        vars.insert(field.clone(), val);
+                    }
+                } else {
                     pc += break_offset;
                     continue;
                 }

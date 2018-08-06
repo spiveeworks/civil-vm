@@ -97,6 +97,12 @@ Statement: ast::Statement = {
     "while" <condition: Expression> <block: Block>
         => ast::Statement::WhileLoop { <> },
     Branches,
+    "match" <data: Expression> "{" <arm: Arm> <def: DefaultArm?> "}"
+        => ast::Statement::Match {
+            data,
+            arm,
+            def: def.unwrap_or(Vec::new()),
+        },
 };
 
 Block: Vec<ast::Statement> = { "{" <Statement*> "}" };
@@ -116,6 +122,13 @@ Branches: ast::Statement = {
 ElifBranch: (ast::Expression, Vec<ast::Statement>) = { "else" <IfBranch> };
 IfBranch: (ast::Expression, Vec<ast::Statement>) = { "if" <Expression> <Block> };
 ElseBranch: Vec<ast::Statement> = { "else" <Block> };
+
+DefaultArm: Vec<ast::Statement> = {
+    "_" "=>" <Block>
+};
+Arm: (String, Vec<String>, Vec<ast::Statement>) = {
+    <TypeIdent> "{" <Comma<TermIdent>> "}" "=>" <Block>
+};
 
 //
 //  Expressions
