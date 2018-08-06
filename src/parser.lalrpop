@@ -123,6 +123,7 @@ ElseBranch: Vec<ast::Statement> = { "else" <Block> };
 
 Expression: ast::Expression = {
     SumExpression,
+    Comparison,
 };
 
 SimpleExpression: ast::Expression = {
