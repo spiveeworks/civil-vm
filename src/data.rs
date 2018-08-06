@@ -66,6 +66,24 @@ impl Field {
         }
     }
 
+    pub fn bool(self: &Self) -> bool {
+        match *self {
+            Field::Data(ref name, ref data) => {
+                if data.len() != 0 {
+                    panic!("Bool can not have fields");
+                }
+                if name == "True" {
+                    return true;
+                }
+                if name == "False" {
+                    return false;
+                }
+                panic!("Bool is either True or False");
+            },
+            _ => panic!("Expected data (bool)"),
+        }
+    }
+
     pub fn unwrap_set(self: Self) -> ObjectSet {
         match self {
             Field::Set(result) => result,

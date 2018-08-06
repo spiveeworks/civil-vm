@@ -17,9 +17,8 @@ pub enum Statement {
     State(Expression),
     // TODO just overwrite state instead of explicitly cancelling?
     CancelWait,
-    SetIterate {
-        var_name: String,
-        set_name: String,
+    WhileLoop {
+        condition: Expression,
         block: Vec<Statement>,
     },
 }
@@ -86,22 +85,22 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
         },
         State(state) => runtime::Statement::State(convert_expression(state)),
         CancelWait => runtime::Statement::CancelWait,
-        SetIterate {
-            var_name,
-            set_name,
+        WhileLoop {
+            condition,
             block,
         } => {
             // could extend, insert, push to avoid unnecessary heap allocs
             // might not be faster tho
+            let condition = convert_expression(condition);
             let block = convert_statements(block);
-            let break_offset = block.len() + 1;
-            result.push(runtime::Statement::SetIterate {
-                var_name,
-                set_name,
+            let block_len = block.len();
+            let break_offset = block_len + 2;
+            result.push(runtime::Statement::WhileLoop {
+                condition,
                 break_offset,
             });
             result.extend(block);
-            result.push(runtime::Statement::Continue);
+            result.push(runtime::Statement::Continue(block_len + 1));
             return;
         },
     };

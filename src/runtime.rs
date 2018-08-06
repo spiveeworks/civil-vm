@@ -45,12 +45,11 @@ pub enum Statement {
         set_name: String,
         to_remove: Expression,
     },
-    SetIterate {
-        var_name: String,
-        set_name: String,
+    WhileLoop {
+        condition: Expression,
         break_offset: usize,
     },
-    Continue,
+    Continue(usize),
 }
 
 #[derive(Clone)]
@@ -430,50 +429,26 @@ pub fn execute_algorithm<G: Flop>(
                     .set()
                     .remove(&key);
             },
-            Statement::SetIterate {
-                ref set_name,
-                ref var_name,
+            Statement::WhileLoop {
+                ref condition,
                 break_offset,
             } => {
-                let break_line = pc + break_offset;
-
-                let set = vars.remove(set_name).expect("no set").unwrap_set();
-                for (ent, ()) in &set {
-                    let val = data::Field::VRef(ent.0.clone());
-                    vars.insert(var_name.clone(), val);
-
-                    let result = execute_algorithm(
-                        game,
-
-                        object.clone(),
-                        table_name.clone(),
-                        action_name.clone(),
-
-                        vars,
-                        pc + 1,
-                        has_state,
-                    );
-
-                    vars = {
-                        if let AlgorithmResult::ContinueLoop {
-                            vars
-                        } = result {
-                            vars
-                        } else {
-                            panic!("Loop leakage");
-                        }
-                    };
+                let mut condition = evaluate_expression(
+                    game,
+                    condition,
+                    &vars,
+                    &object,
+                );
+                assert!(condition.len() == 1, "Too many results of condition");
+                let condition = condition.pop().unwrap().bool();
+                if !condition {
+                    pc += break_offset;
+                    continue;
                 }
-
-                vars.insert(set_name.clone(), data::Field::Set(set));
-
-                pc = break_line;
             },
-            Statement::Continue => {
-                result = Some(AlgorithmResult::ContinueLoop {
-                    vars
-                });
-                break;
+            Statement::Continue(break_offset) => {
+                pc -= break_offset;
+                continue;
             },
         }
 
