@@ -20,9 +20,8 @@ pub enum Statement {
     SetIterate {
         var_name: String,
         set_name: String,
-        break_offset: usize,
+        block: Vec<Statement>,
     },
-    Continue,
 }
 
 #[derive(Clone)]
@@ -47,23 +46,32 @@ pub enum Expression {
 }
 
 pub fn convert_algorithm(alg: Algorithm) -> runtime::Algorithm {
-    let Algorithm { param_list, steps } = alg;
-    let steps = steps.into_iter().map(convert_statement).collect();
+    let param_list = alg.param_list;
+    let steps = convert_statements(alg.steps);
     runtime::Algorithm { param_list, steps }
 }
 
-fn convert_statement(step: Statement) -> runtime::Statement {
+fn convert_statements(steps: Vec<Statement>) -> Vec<runtime::Statement> {
+    let mut result = Vec::new();
+    for x in steps.into_iter() {
+        convert_statement(x, &mut result);
+    }
+    result
+}
+
+fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
     use self::Statement::*;
-    match step {
+    let converted = match step {
         Bang => runtime::Statement::Debug("BANG".into()),
         Evaluate { mut expressions, results } => {
             if results.len() == 0 {
                 if expressions.len() == 1 {
                     use self::Expression::Method;
                     if let Method { names, args } = &mut expressions[0] {
-                        let result = convert_simple_statement(names, args);
-                        if let Some(result) = result {
-                            return result;
+                        let converted = convert_simple_statement(names, args);
+                        if let Some(converted) = converted {
+                            result.push(converted);
+                            return;
                         }
                     }
                 } else {
@@ -81,14 +89,23 @@ fn convert_statement(step: Statement) -> runtime::Statement {
         SetIterate {
             var_name,
             set_name,
-            break_offset,
-        } => runtime::Statement::SetIterate {
-            var_name,
-            set_name,
-            break_offset,
+            block,
+        } => {
+            // could extend, insert, push to avoid unnecessary heap allocs
+            // might not be faster tho
+            let block = convert_statements(block);
+            let break_offset = block.len() + 1;
+            result.push(runtime::Statement::SetIterate {
+                var_name,
+                set_name,
+                break_offset,
+            });
+            result.extend(block);
+            result.push(runtime::Statement::Continue);
+            return;
         },
-        Continue => runtime::Statement::Continue,
-    }
+    };
+    result.push(converted);
 }
 
 // if this returns `None` then it didn't modify the inputs

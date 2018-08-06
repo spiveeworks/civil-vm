@@ -74,30 +74,8 @@ Action: (String, runtime::Algorithm) = {
 };
 
 Algorithm: runtime::Algorithm = {
-    "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
+    "(" <param_list: Comma<Ident>> ")" "{" <steps: Statement*> "}" => {
         ast::convert_algorithm(ast::Algorithm { <> })
-    },
-};
-
-Blocks: Vec<ast::Statement> = {
-    <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
-};
-
-Block: Vec<ast::Statement> = {
-    <Statement> => vec![<>],
-    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
-        let mut block = block;
-        let break_offset = block.len() + 1;
-        let intro = ast::Statement::SetIterate {
-            var_name,
-            set_name,
-            break_offset,
-        };
-        block.insert(0, intro);
-
-        block.push(ast::Statement::Continue);
-
-        block
     },
 };
 
@@ -115,6 +93,9 @@ Statement: ast::Statement = {
         ast::Statement::State(<>)
     },
     "cancel;" => ast::Statement::CancelWait,
+
+    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Statement*> "}"
+        => ast::Statement::SetIterate { var_name, set_name, block },
 };
 
 //
