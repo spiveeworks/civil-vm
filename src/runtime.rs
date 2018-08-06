@@ -45,11 +45,12 @@ pub enum Statement {
         set_name: String,
         to_remove: Expression,
     },
-    WhileLoop {
+    Branch {
         condition: Expression,
         break_offset: usize,
     },
     Continue(usize),
+    Jump(usize),
 }
 
 #[derive(Clone)]
@@ -429,7 +430,7 @@ pub fn execute_algorithm<G: Flop>(
                     .set()
                     .remove(&key);
             },
-            Statement::WhileLoop {
+            Statement::Branch {
                 ref condition,
                 break_offset,
             } => {
@@ -448,6 +449,10 @@ pub fn execute_algorithm<G: Flop>(
             },
             Statement::Continue(break_offset) => {
                 pc -= break_offset;
+                continue;
+            },
+            Statement::Jump(break_offset) => {
+                pc += break_offset;
                 continue;
             },
         }

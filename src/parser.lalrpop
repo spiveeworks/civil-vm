@@ -74,7 +74,7 @@ Action: (String, runtime::Algorithm) = {
 };
 
 Algorithm: runtime::Algorithm = {
-    "(" <param_list: Comma<TermIdent>> ")" "{" <steps: Statement*> "}" => {
+    "(" <param_list: Comma<TermIdent>> ")" <steps: Block> => {
         ast::convert_algorithm(ast::Algorithm { <> })
     },
 };
@@ -94,9 +94,28 @@ Statement: ast::Statement = {
     },
     "cancel;" => ast::Statement::CancelWait,
 
-    "while" <condition: Expression> "{" <block: Statement*> "}"
+    "while" <condition: Expression> <block: Block>
         => ast::Statement::WhileLoop { <> },
+    Branches,
 };
+
+Block: Vec<ast::Statement> = { "{" <Statement*> "}" };
+
+Branches: ast::Statement = {
+    <if_branch: IfBranch> <elifs: ElifBranch*> <else_branch: ElseBranch?> => {
+        let mut if_branches = elifs;
+        if_branches.insert(0, if_branch);
+        let else_branch = else_branch.unwrap_or(Vec::new());
+        ast::Statement::Branch {
+            if_branches,
+            else_branch,
+        }
+    },
+};
+
+ElifBranch: (ast::Expression, Vec<ast::Statement>) = { "else" <IfBranch> };
+IfBranch: (ast::Expression, Vec<ast::Statement>) = { "if" <Expression> <Block> };
+ElseBranch: Vec<ast::Statement> = { "else" <Block> };
 
 //
 //  Expressions
