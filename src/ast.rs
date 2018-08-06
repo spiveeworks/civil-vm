@@ -41,11 +41,22 @@ pub enum Expression {
     },
 
     Const(f64),
+    Comparison(Box<Expression>, Vec<(CompareOp, Expression)>),
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Pow(Box<Expression>, Box<Expression>),
+}
+
+#[derive(Clone)]
+pub enum CompareOp {
+    Equals,
+    NEquals,
+    LessEq,
+    GreaterEq,
+    Greater,
+    Less,
 }
 
 pub fn convert_algorithm(alg: Algorithm) -> runtime::Algorithm {
@@ -225,6 +236,12 @@ fn convert_expression(val: Expression) -> runtime::Expression {
         },
 
         Const(f64) => runtime::Expression::Const(f64),
+        Comparison(l, r) => runtime::Expression::Comparison(
+            box_convert(l),
+            r.into_iter()
+             .map(|(c, r)|(c, convert_expression(r)))
+             .collect(),
+        ),
         Add(l, r) => runtime::Expression::Add(box_convert(l), box_convert(r)),
         Sub(l, r) => runtime::Expression::Sub(box_convert(l), box_convert(r)),
         Mul(l, r) => runtime::Expression::Mul(box_convert(l), box_convert(r)),

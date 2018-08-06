@@ -136,6 +136,20 @@ SimpleExpression: ast::Expression = {
         => ast::Expression::Data { <> },
 };
 
+Comparison: ast::Expression = {
+    <x: SumExpression> <ops: (ComparisonOp SumExpression)+>
+        => ast::Expression::Comparison(Box::new(x), ops),
+};
+
+ComparisonOp: ast::CompareOp = {
+    "==" => ast::CompareOp::Equals,
+    "!=" => ast::CompareOp::NEquals,
+    "<=" => ast::CompareOp::LessEq,
+    ">=" => ast::CompareOp::GreaterEq,
+    "<" => ast::CompareOp::Greater,
+    ">" => ast::CompareOp::Less,
+};
+
 SumExpression: ast::Expression = {
     MulExpression,
     <x: SumExpression> "+" <y: MulExpression> =>

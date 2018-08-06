@@ -24,6 +24,9 @@ pub enum Field {
 }
 
 impl Field {
+    pub fn from_bool(val: bool) -> Self {
+        Field::Data(if val { "True" } else { "False" }.into(), Dict::new())
+    }
     pub fn num(self: &Self) -> f64 {
         match *self {
             Field::Num(result) => result,
