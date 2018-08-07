@@ -52,9 +52,8 @@ pub enum Statement {
     },
     PatternBranch {
         data: Expression,
-        variant: String,
-        fields: Vec<String>,
-        break_offset: usize,
+        arms: Dict<(Vec<String>, usize)>,
+        default_offset: usize,
     },
     Continue(usize),
     Jump(usize),
@@ -451,9 +450,8 @@ pub fn execute_algorithm<G: Flop>(
             },
             Statement::PatternBranch {
                 ref data,
-                ref variant,
-                ref fields,
-                break_offset,
+                ref arms,
+                default_offset,
             } => {
                 let (name, mut field_vals) = evaluate_expression(
                     game,
@@ -461,16 +459,17 @@ pub fn execute_algorithm<G: Flop>(
                     &vars,
                     &object,
                 ).unwrap_data();
-                if &name == variant {
+                let mut offset = default_offset;
+                if let Some((fields, this_offset)) = arms.get(&name) {
                     for field in fields {
                         let val = field_vals.remove(field)
                             .expect("field not found for match arm");
                         vars.insert(field.clone(), val);
                     }
-                } else {
-                    pc += break_offset;
-                    continue;
+                    offset = *this_offset;
                 }
+                pc += offset;
+                continue;
             },
             Statement::Continue(break_offset) => {
                 pc -= break_offset;

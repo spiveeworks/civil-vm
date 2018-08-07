@@ -1,3 +1,5 @@
+use prelude::*;
+
 use runtime;
 
 pub struct Algorithm {
@@ -27,7 +29,7 @@ pub enum Statement {
     },
     Match {
         data: Expression,
-        arm: (String, Vec<String>, Vec<Statement>),
+        arms: Dict<(Vec<String>, Vec<Statement>)>,
         def: Vec<Statement>,
     },
 }
@@ -144,27 +146,39 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
             result.extend(rest);
             return;
         },
-        Match { data, arm, def } => {
-            let mut rest = convert_statements(def);
-            let (variant, fields, block) = arm; // {
-                let data = convert_expression(data);
+        Match { data, arms, def } => {
+            let arms_len = arms.len();
+            let rest = convert_statements(def);
+            let mut total_offset = 1;
+            let mut arms_sequence = Vec::with_capacity(arms_len);
+            let data = convert_expression(data);
+            for (variant, (fields, block)) in arms {
                 let mut block = convert_statements(block);
+                total_offset += block.len() + 1;
+                arms_sequence.push((variant, fields, total_offset, block));
+            }
+            let mut arms = Dict::with_capacity(arms_len);
+            let mut codes = Vec::new();
+            for (variant, fields, start_offset, block) in arms_sequence {
+                // X...JX...
+                // block.len = 4
+                // start = 1
+                // finish = 6
+                // J = 1
+                // finish - start - block.len????
+                let offset = total_offset - start_offset - block.len();
+                codes.extend(block);
+                codes.push(runtime::Statement::Jump(offset));
+                arms.insert(variant, (fields, offset));
+            }
 
-                let break_offset = block.len() + 2;
-                let statement = runtime::Statement::PatternBranch {
-                    data,
-                    variant,
-                    fields,
-                    break_offset,
-                };
-                block.insert(0, statement);
-
-                block.push(runtime::Statement::Jump(rest.len() + 1));
-
-                block.extend(rest);
-                rest = block;
-            // }
-
+            let statement = runtime::Statement::PatternBranch {
+                data,
+                arms,
+                default_offset: total_offset,
+            };
+            result.push(statement);
+            result.extend(codes);
             result.extend(rest);
             return;
         },

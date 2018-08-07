@@ -97,10 +97,10 @@ Statement: ast::Statement = {
     "while" <condition: Expression> <block: Block>
         => ast::Statement::WhileLoop { <> },
     Branches,
-    "match" <data: Expression> "{" <arm: Arm> <def: DefaultArm?> "}"
+    "match" <data: Expression> "{" <arms: Comma<Arm>> <def: DefaultArm?> "}"
         => ast::Statement::Match {
             data,
-            arm,
+            arms: arms.into_iter().map(|(var, x, y)|(var, (x, y))).collect(),
             def: def.unwrap_or(Vec::new()),
         },
 };
