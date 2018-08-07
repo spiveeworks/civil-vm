@@ -100,7 +100,7 @@ Statement: ast::Statement = {
     "match" <data: Expression> "{" <arms: Comma<Arm>> <def: DefaultArm?> "}"
         => ast::Statement::Match {
             data,
-            arms: arms.into_iter().map(|(var, x, y)|(var, (x, y))).collect(),
+            arms,
             def: def.unwrap_or(Vec::new()),
         },
 };

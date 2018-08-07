@@ -29,7 +29,7 @@ pub enum Statement {
     },
     Match {
         data: Expression,
-        arms: Dict<(Vec<String>, Vec<Statement>)>,
+        arms: Vec<(String, Vec<String>, Vec<Statement>)>,
         def: Vec<Statement>,
     },
 }
@@ -152,20 +152,19 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
             let mut total_offset = 1;
             let mut arms_sequence = Vec::with_capacity(arms_len);
             let data = convert_expression(data);
-            for (variant, (fields, block)) in arms {
+            for (variant, fields, block) in arms {
                 let mut block = convert_statements(block);
+                let this_offset = total_offset;
                 total_offset += block.len() + 1;
-                arms_sequence.push((variant, fields, total_offset, block));
+                arms_sequence.push((variant, fields, this_offset, block));
             }
             let mut arms = Dict::with_capacity(arms_len);
             let mut codes = Vec::new();
+
+            let default_offset = total_offset;
+            total_offset += rest.len();
+
             for (variant, fields, start_offset, block) in arms_sequence {
-                // X...JX...
-                // block.len = 4
-                // start = 1
-                // finish = 6
-                // J = 1
-                // finish - start - block.len????
                 let offset = total_offset - start_offset - block.len();
                 codes.extend(block);
                 codes.push(runtime::Statement::Jump(offset));
@@ -175,7 +174,7 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
             let statement = runtime::Statement::PatternBranch {
                 data,
                 arms,
-                default_offset: total_offset,
+                default_offset,
             };
             result.push(statement);
             result.extend(codes);
