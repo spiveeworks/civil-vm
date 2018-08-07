@@ -148,41 +148,58 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
         },
         Match { data, arms, def } => {
             let arms_len = arms.len();
-            let rest = convert_statements(def);
-            let mut total_offset = 1;
-            let mut arms_sequence = Vec::with_capacity(arms_len);
+            let mut blocks = Vec::with_capacity(arms_len);
+            let mut new_arms = Dict::with_capacity(arms_len);
+            for (i, (variant, fields, block)) in arms.into_iter().enumerate() {
+                let block = convert_statements(block);
+                blocks.push(block);
+                new_arms.insert(variant, (fields, i));
+            }
+            let def = convert_statements(def);
+            blocks.push(def);
+
+            let (codes, offsets) = link_blocks(blocks, 1);
+            for (_, (_, ref mut i)) in &mut new_arms {
+                let index = *i;
+                *i = offsets[index];
+            }
+
+            // offsets = [branch, branch, ..., default, continue]
+            // so the number of branches is the index of the default
+            let default_offset = offsets[arms_len];
+
             let data = convert_expression(data);
-            for (variant, fields, block) in arms {
-                let mut block = convert_statements(block);
-                let this_offset = total_offset;
-                total_offset += block.len() + 1;
-                arms_sequence.push((variant, fields, this_offset, block));
-            }
-            let mut arms = Dict::with_capacity(arms_len);
-            let mut codes = Vec::new();
-
-            let default_offset = total_offset;
-            total_offset += rest.len();
-
-            for (variant, fields, start_offset, block) in arms_sequence {
-                let offset = total_offset - start_offset - block.len();
-                codes.extend(block);
-                codes.push(runtime::Statement::Jump(offset));
-                arms.insert(variant, (fields, offset));
-            }
-
             let statement = runtime::Statement::PatternBranch {
                 data,
-                arms,
+                arms: new_arms,
                 default_offset,
             };
             result.push(statement);
             result.extend(codes);
-            result.extend(rest);
             return;
         },
     };
     result.push(converted);
+}
+
+fn link_blocks(
+    blocks: Vec<Vec<runtime::Statement>>,
+    initial_offset: usize,
+) -> (Vec<runtime::Statement>, Vec<usize>) {
+    let mut offset = initial_offset;
+    let mut offsets = Vec::with_capacity(blocks.len() + 1);
+    for block in &blocks {
+        offsets.push(offset);
+        offset += block.len() + 1;
+    }
+    offsets.push(offset);
+    let mut result = Vec::with_capacity(offset - initial_offset);
+    for (i, block) in blocks.into_iter().enumerate() {
+        let next_offset = offsets[i+1];
+        result.extend(block);
+        result.push(runtime::Statement::Jump(offset - next_offset + 1));
+    }
+    (result, offsets)
 }
 
 // if this returns `None` then it didn't modify the inputs
