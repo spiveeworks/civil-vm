@@ -160,8 +160,8 @@ ComparisonOp: ast::CompareOp = {
     "!=" => ast::CompareOp::NEquals,
     "<=" => ast::CompareOp::LessEq,
     ">=" => ast::CompareOp::GreaterEq,
-    "<" => ast::CompareOp::Greater,
-    ">" => ast::CompareOp::Less,
+    "<" => ast::CompareOp::Less,
+    ">" => ast::CompareOp::Greater,
 };
 
 SumExpression: ast::Expression = {
