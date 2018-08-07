@@ -24,6 +24,9 @@ pub enum Field {
 }
 
 impl Field {
+    pub fn from_bool(val: bool) -> Self {
+        Field::Data(if val { "True" } else { "False" }.into(), Dict::new())
+    }
     pub fn num(self: &Self) -> f64 {
         match *self {
             Field::Num(result) => result,
@@ -63,6 +66,24 @@ impl Field {
         match self {
             Field::Data(name, data) => (name, data),
             _ => panic!("Expected data"),
+        }
+    }
+
+    pub fn bool(self: &Self) -> bool {
+        match *self {
+            Field::Data(ref name, ref data) => {
+                if data.len() != 0 {
+                    panic!("Bool can not have fields");
+                }
+                if name == "True" {
+                    return true;
+                }
+                if name == "False" {
+                    return false;
+                }
+                panic!("Bool is either True or False");
+            },
+            _ => panic!("Expected data (bool)"),
         }
     }
 
@@ -146,4 +167,18 @@ impl Eq for ObjectKey {
 }
 
 pub type ObjectSet = ::std::collections::HashMap<ObjectKey, ()>;
+
+pub fn set_pop(set: &mut ObjectSet) -> Option<(ObjectRef, ())> {
+    let mut out = None;
+    for (x, y) in &*set {
+        out = Some((x.clone(), y.clone()));
+        break;
+    }
+    if let Some((to_remove, val)) = out {
+        set.remove(&to_remove);
+        Some((to_remove.0, val))
+    } else {
+        None
+    }
+}
 

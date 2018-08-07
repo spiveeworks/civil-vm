@@ -1,21 +1,14 @@
 LooperRole := role {
-    create: initializer(),
-    loop: action(),
+    run: initializer(),
 }
 
-Looper := LooperRole { create = create, loop = loop }
+Looper := LooperRole { run = run }
 
-create := initializer() {
-    self = Null {};
-}
-
-loop := action() {
-    cancel;
-    self = Wait {};
-    wait(1);
-    self = Null {};
-    BANG;
-    this = Looper(self);
-    this.loop();
+run := initializer() {
+    while True {} {
+        self.data = Wait {};
+        wait(1);
+        BANG;
+    }
 }
 
