@@ -3,7 +3,7 @@ RootRole := role { init: initializer() }
 Root := RootRole { init = init }
 
 init := initializer() {
-    self = Null {};
+    self.data = Null {};
     looper = Looper.Looper.run();
 }
 

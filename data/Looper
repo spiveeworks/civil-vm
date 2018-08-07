@@ -6,7 +6,7 @@ Looper := LooperRole { run = run }
 
 run := initializer() {
     while True {} {
-        self = Wait {};
+        self.data = Wait {};
         wait(1);
         BANG;
     }
