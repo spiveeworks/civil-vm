@@ -127,23 +127,35 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
         },
         Branch { mut if_branches, else_branch } => {
             let mut rest = convert_statements(else_branch);
-            while let Some((cond, block)) = if_branches.pop() {
+            let mut blocks = Vec::with_capacity(if_branches.len() + 1);
+            for (cond, block) in if_branches {
                 let condition = convert_expression(cond);
                 let mut block = convert_statements(block);
 
-                let break_offset = block.len() + 2;
+                // we could also store the conditions and put a noop into the
+                // blocks... but its going to branch when it drops so we might
+                // as well branch to check anyway
                 let statement = runtime::Statement::Branch {
                     condition,
-                    break_offset,
+                    break_offset: 0,
                 };
                 block.insert(0, statement);
 
-                block.push(runtime::Statement::Jump(rest.len() + 1));
-
-                block.extend(rest);
-                rest = block;
+                blocks.push(block);
             }
-            result.extend(rest);
+            blocks.push(rest);
+            let (mut codes, offsets) = link_blocks(blocks, 0);
+            for i in 0..offsets.len()-2 {
+                if let runtime::Statement::Branch {
+                    ref mut break_offset,
+                    ..
+                } = &mut codes[offsets[i]] {
+                    *break_offset = offsets[i+1] - offsets[i];
+                } else {
+                    unreachable!();
+                }
+            }
+            result.extend(codes);
             return;
         },
         Match { data, arms, def } => {
