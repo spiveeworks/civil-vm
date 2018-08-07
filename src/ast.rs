@@ -230,22 +230,6 @@ fn convert_simple_statement(names: &mut Vec<String>, args: &mut Vec<Expression>)
             let arg = args.pop().unwrap();
             return Some(runtime::Statement::Wait(convert_expression(arg)));
         }
-    } else if names.len() == 2 {
-        if names[1] == "add" {
-            assert!(args.len() == 1, "Set.add expects 1 argument");
-            let arg = args.pop().unwrap();
-            return Some(runtime::Statement::SetAdd {
-                set_name: names[0].clone(),
-                to_add: convert_expression(arg),
-            });
-        } else if names[1] == "remove" {
-            assert!(args.len() == 1, "Set.remove expects 1 argument");
-            let arg = args.pop().unwrap();
-            return Some(runtime::Statement::SetAdd {
-                set_name: names[0].clone(),
-                to_add: convert_expression(arg),
-            });
-        }
     }
     None
 }

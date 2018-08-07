@@ -38,14 +38,6 @@ pub enum Statement {
     State(Expression),
     Wait(Expression),
     CancelWait,
-    SetAdd {
-        set_name: String,
-        to_add: Expression,
-    },
-    SetRemove {
-        set_name: String,
-        to_remove: Expression,
-    },
     Branch {
         condition: Expression,
         break_offset: usize,
@@ -260,7 +252,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut result = evaluate_expressions(
                     game,
                     exprs,
-                    &vars,
+                    &mut vars,
                     &object,
                 ).into_iter();
                 print!("Debug: {}", result.next().unwrap().num());
@@ -279,7 +271,7 @@ pub fn execute_algorithm<G: Flop>(
                     let time_ = evaluate_expression(
                         game,
                         time,
-                        &vars,
+                        &mut vars,
                         &object,
                     ).num();
                     let time = Time::try_from(time_)
@@ -313,7 +305,7 @@ pub fn execute_algorithm<G: Flop>(
                 let vals = evaluate_expressions(
                     game,
                     args,
-                    &vars,
+                    &mut vars,
                     &object,
                 );
 
@@ -345,7 +337,7 @@ pub fn execute_algorithm<G: Flop>(
                 let result_vals = evaluate_expressions(
                     game,
                     expressions,
-                    &vars,
+                    &mut vars,
                     &object,
                 );
                 for (name, val) in results.iter().zip(result_vals) {
@@ -360,7 +352,7 @@ pub fn execute_algorithm<G: Flop>(
                 let (state_name, data) = evaluate_expression(
                     game,
                     state,
-                    &vars,
+                    &mut vars,
                     &object,
                 ).unwrap_data();
 
@@ -375,7 +367,7 @@ pub fn execute_algorithm<G: Flop>(
                 let time_ = evaluate_expression(
                     game,
                     time,
-                    &vars,
+                    &mut vars,
                     &object,
                 ).num();
                 let time = Time::try_from(time_)
@@ -408,32 +400,6 @@ pub fn execute_algorithm<G: Flop>(
                 has_state = false;
             },
 
-            Statement::SetAdd { ref set_name, ref to_add } => {
-                let mut val = evaluate_expression(
-                    game,
-                    to_add,
-                    &vars,
-                    &object,
-                );
-                let key = data::ObjectKey(val.unwrap_vref());
-                vars.get_mut(set_name)
-                    .expect("Set not found")
-                    .set()
-                    .insert(key, ());
-            },
-            Statement::SetRemove { ref set_name, ref to_remove } => {
-                let mut val = evaluate_expression(
-                    game,
-                    to_remove,
-                    &vars,
-                    &object,
-                );
-                let key = data::ObjectKey(val.unwrap_vref());
-                vars.get_mut(set_name)
-                    .expect("Set not found")
-                    .set()
-                    .remove(&key);
-            },
             Statement::Branch {
                 ref condition,
                 break_offset,
@@ -441,7 +407,7 @@ pub fn execute_algorithm<G: Flop>(
                 let mut condition = evaluate_expression(
                     game,
                     condition,
-                    &vars,
+                    &mut vars,
                     &object,
                 ).bool();
                 if !condition {
@@ -457,7 +423,7 @@ pub fn execute_algorithm<G: Flop>(
                 let (name, mut field_vals) = evaluate_expression(
                     game,
                     data,
-                    &vars,
+                    &mut vars,
                     &object,
                 ).unwrap_data();
                 let mut offset = default_offset;
@@ -520,7 +486,7 @@ fn wait(
 fn evaluate_expression<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &data::Data,
+    vars: &mut data::Data,
     object: &data::Object,
 ) -> data::Field {
     let mut result = Vec::new();
@@ -540,7 +506,7 @@ fn evaluate_expression<G: Flop>(
 fn evaluate_expressions<G: Flop>(
     game: &mut G,
     expressions: &Vec<Expression>,
-    vars: &data::Data,
+    vars: &mut data::Data,
     object: &data::Object,
 ) -> Vec<data::Field> {
     let mut result = Vec::new();
@@ -561,7 +527,7 @@ fn evaluate_expressions<G: Flop>(
 fn evaluate_expression_into<G: Flop>(
     game: &mut G,
     expression: &Expression,
-    vars: &data::Data,
+    vars: &mut data::Data,
     object: &data::Object,
     result: &mut Vec<data::Field>,
 ) {
@@ -599,13 +565,34 @@ fn evaluate_expression_into<G: Flop>(
             ref action_name,
             ref args,
         } => {
-            let vref = vars[object_name].clone().unwrap_vref();
-            let args = evaluate_expressions(
+            let mut args = evaluate_expressions(
                 game,
                 args,
                 vars,
                 &object,
             );
+            if let data::Field::Set(x) = vars.get_mut(object_name).unwrap() {
+                if action_name == "add" {
+                    assert!(args.len() == 1, "Set.add expects one arg");
+                    let key = args.pop().unwrap().unwrap_vref();
+                    x.insert(data::ObjectKey(key), ());
+                } else if action_name == "remove" {
+                    assert!(args.len() == 1, "Set.remove expects one arg");
+                    let key = args.pop().unwrap().unwrap_vref();
+                    x.remove(&data::ObjectKey(key));
+                } else if action_name == "next" {
+                    assert!(args.len() == 0, "Set.next expects no args");
+                    let (val, ()) = data::set_pop(x)
+                        .expect("Cannot remove from empty set");
+                    result.push(data::Field::VRef(val));
+                } else if action_name == "not_empty" {
+                    // TODO !set.is_empty()
+                    assert!(args.len() == 0, "Set.not_empty expects no args");
+                    result.push(data::Field::from_bool(!x.is_empty()));
+                }
+                return;
+            }
+            let vref = vars[object_name].clone().unwrap_vref();
             let args = {
                 let type_name = &vref.data.borrow(game.totem()).type_name;
                 bind_args(

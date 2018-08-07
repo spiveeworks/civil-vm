@@ -168,3 +168,17 @@ impl Eq for ObjectKey {
 
 pub type ObjectSet = ::std::collections::HashMap<ObjectKey, ()>;
 
+pub fn set_pop(set: &mut ObjectSet) -> Option<(ObjectRef, ())> {
+    let mut out = None;
+    for (x, y) in &*set {
+        out = Some((x.clone(), y.clone()));
+        break;
+    }
+    if let Some((to_remove, val)) = out {
+        set.remove(&to_remove);
+        Some((to_remove.0, val))
+    } else {
+        None
+    }
+}
+
