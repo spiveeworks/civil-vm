@@ -4,7 +4,6 @@ Root := RootRole { init = init }
 
 init := initializer() {
     self = Null {};
-    looper = Looper.Looper.create();
-    looper.loop();
+    looper = Looper.Looper.run();
 }
 

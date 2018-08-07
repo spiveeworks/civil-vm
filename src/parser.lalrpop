@@ -37,12 +37,12 @@ TableTerm: (String, table::TableTerm) = {
 //
 
 TableSignature: (String, Dict<table::SignatureTerm>) = {
-    <name: Ident> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+    <name: TypeIdent> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 
 TableSignatureTerm: (String, table::SignatureTerm) = {
-    <Ident> ":" <TermSignature>,
+    <TermIdent> ":" <TermSignature>,
 };
 
 TermSignature: table::SignatureTerm = {
@@ -57,7 +57,7 @@ DataType: data::FieldType = {
 };
 
 TableInstance: (String, String, Vec<(String, String)>) = {
-    <Ident> ":=" <Ident> "{" <Comma<Assignment<Ident>>> "}",
+    <TypeIdent> ":=" <TypeIdent> "{" <Comma<Assignment<TermIdent>>> "}",
 };
 
 
@@ -66,38 +66,16 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //
 
 Initializer: (String, runtime::Algorithm) = {
-    <Ident> ":=" "initializer" <Algorithm>,
+    <TermIdent> ":=" "initializer" <Algorithm>,
 };
 
 Action: (String, runtime::Algorithm) = {
-    <Ident> ":=" "action" <Algorithm>,
+    <TermIdent> ":=" "action" <Algorithm>,
 };
 
 Algorithm: runtime::Algorithm = {
-    "(" <param_list: Comma<Ident>> ")" "{" <steps: Blocks> "}" => {
+    "(" <param_list: Comma<TermIdent>> ")" <steps: Block> => {
         ast::convert_algorithm(ast::Algorithm { <> })
-    },
-};
-
-Blocks: Vec<ast::Statement> = {
-    <blocks: Block*> => blocks.into_iter().flat_map(|x| x).collect()
-};
-
-Block: Vec<ast::Statement> = {
-    <Statement> => vec![<>],
-    "for" <var_name: Ident> "in" <set_name: Ident> "{" <block: Blocks> "}" => {
-        let mut block = block;
-        let break_offset = block.len() + 1;
-        let intro = ast::Statement::SetIterate {
-            var_name,
-            set_name,
-            break_offset,
-        };
-        block.insert(0, intro);
-
-        block.push(ast::Statement::Continue);
-
-        block
     },
 };
 
@@ -108,13 +86,48 @@ Statement: ast::Statement = {
         let results = vec![];
         ast::Statement::Evaluate { expressions, results }
     },
-    <results: Comma<Ident>> "=" <expressions: Comma<Expression>> ";" => {
+    <results: Comma<TermIdent>> "=" <expressions: Comma<Expression>> ";" => {
         ast::Statement::Evaluate { <> }
     },
     "self" "=" <Expression> ";" => {
         ast::Statement::State(<>)
     },
     "cancel;" => ast::Statement::CancelWait,
+
+    "while" <condition: Expression> <block: Block>
+        => ast::Statement::WhileLoop { <> },
+    Branches,
+    "match" <data: Expression> "{" <arms: Comma<Arm>> <def: DefaultArm?> "}"
+        => ast::Statement::Match {
+            data,
+            arms,
+            def: def.unwrap_or(Vec::new()),
+        },
+};
+
+Block: Vec<ast::Statement> = { "{" <Statement*> "}" };
+
+Branches: ast::Statement = {
+    <if_branch: IfBranch> <elifs: ElifBranch*> <else_branch: ElseBranch?> => {
+        let mut if_branches = elifs;
+        if_branches.insert(0, if_branch);
+        let else_branch = else_branch.unwrap_or(Vec::new());
+        ast::Statement::Branch {
+            if_branches,
+            else_branch,
+        }
+    },
+};
+
+ElifBranch: (ast::Expression, Vec<ast::Statement>) = { "else" <IfBranch> };
+IfBranch: (ast::Expression, Vec<ast::Statement>) = { "if" <Expression> <Block> };
+ElseBranch: Vec<ast::Statement> = { "else" <Block> };
+
+DefaultArm: Vec<ast::Statement> = {
+    "_" "=>" <Block>
+};
+Arm: (String, Vec<String>, Vec<ast::Statement>) = {
+    <TypeIdent> "{" <Comma<TermIdent>> "}" "=>" <Block>
 };
 
 //
@@ -123,17 +136,32 @@ Statement: ast::Statement = {
 
 Expression: ast::Expression = {
     SumExpression,
+    Comparison,
 };
 
 SimpleExpression: ast::Expression = {
     "(" <Expression> ")",
-    <Ident> => ast::Expression::Var(<>),
+    <TermIdent> => ast::Expression::Var(<>),
     <names: Path<Ident>> "(" <args: Comma<Expression>> ")"
         => ast::Expression::Method { <> },
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
-    <name: Ident> "{" <fields: Comma<Assignment<Expression>>> "}"
+    <name: TypeIdent> "{" <fields: Comma<Assignment<Expression>>> "}"
         => ast::Expression::Data { <> },
+};
+
+Comparison: ast::Expression = {
+    <x: SumExpression> <ops: (ComparisonOp SumExpression)+>
+        => ast::Expression::Comparison(Box::new(x), ops),
+};
+
+ComparisonOp: ast::CompareOp = {
+    "==" => ast::CompareOp::Equals,
+    "!=" => ast::CompareOp::NEquals,
+    "<=" => ast::CompareOp::LessEq,
+    ">=" => ast::CompareOp::GreaterEq,
+    "<" => ast::CompareOp::Less,
+    ">" => ast::CompareOp::Greater,
 };
 
 SumExpression: ast::Expression = {
@@ -170,11 +198,17 @@ Dict<T>: Dict<T> = {
 };
 
 Assignment<T>: (String, T) = {
-    <Ident> "=" <T>
+    <TermIdent> "=" <T>
 };
 
-Ident: String = {
-    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.into(),
+Ident: String = { TermIdent, TypeIdent };
+
+TermIdent: String = {
+    r"[a-z_][a-zA-Z0-9_]*" => <>.into(),
+};
+
+TypeIdent: String = {
+    r"[A-Z][a-zA-Z0-9_]*" => <>.into(),
 };
 
 Path<T>: Vec<T> = {
