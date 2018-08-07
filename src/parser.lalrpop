@@ -89,7 +89,7 @@ Statement: ast::Statement = {
     <results: Comma<TermIdent>> "=" <expressions: Comma<Expression>> ";" => {
         ast::Statement::Evaluate { <> }
     },
-    "self" "=" <Expression> ";" => {
+    "self" "." "data" "=" <Expression> ";" => {
         ast::Statement::State(<>)
     },
     "cancel;" => ast::Statement::CancelWait,
@@ -146,6 +146,7 @@ SimpleExpression: ast::Expression = {
         => ast::Expression::Method { <> },
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
+    "self" "." "data" => ast::Expression::SelfData,
     <name: TypeIdent> "{" <fields: Comma<Assignment<Expression>>> "}"
         => ast::Expression::Data { <> },
 };

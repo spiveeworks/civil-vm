@@ -42,6 +42,7 @@ pub enum Expression {
         args: Vec<Expression>,
     },
     SelfObject,
+    SelfData,
     Data {
         name: String,
         fields: Vec<(String, Expression)>,
@@ -299,6 +300,7 @@ fn convert_expression(val: Expression) -> runtime::Expression {
             }
         },
         SelfObject => runtime::Expression::SelfObject,
+        SelfData => runtime::Expression::SelfData,
         Data { name, fields } => {
             let fields = fields
                 .into_iter()

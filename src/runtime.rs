@@ -83,6 +83,7 @@ pub enum Expression {
         object: Box<Expression>,
     },
     SelfObject,
+    SelfData,
 
     Data {
         name: String,
@@ -658,8 +659,15 @@ fn evaluate_expression_into<G: Flop>(
             let vref = data::ObjectRef { table, data };
             result.push(data::Field::VRef(vref));
         },
+
         SelfObject => {
             result.push(data::Field::TRef(Strong::clone(object)));
+        },
+        SelfData => {
+            let obj = object.borrow(&game.totem());
+            let name = obj.state_name.clone();
+            let data = obj.data.clone();
+            result.push(data::Field::Data(name, data));
         },
 
         Data { ref name, ref fields } => {
