@@ -1,4 +1,4 @@
-Looper := interface { run = run }
+Looper := interface { run }
 
 run := ctor() {
     while True {} {

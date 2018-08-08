@@ -1,4 +1,4 @@
-Root := interface { init = init }
+Root := interface { init }
 
 init := ctor() {
     self.data = Null {};

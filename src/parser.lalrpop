@@ -53,12 +53,20 @@ DataType: data::FieldType = {
 };
 
 Interface: (String, String, Vec<(String, String)>) = {
-    <TypeIdent> ":=" <TypeIdent> "{" <Comma<Assignment<TermIdent>>> "}",
+    <TypeIdent> ":=" <TypeIdent> "{" <Comma<TermAssign>> "}",
     <name: TypeIdent> ":=" "interface" "{"
-        <items: Comma<Assignment<TermIdent>>> "}" => {
+        <items: Comma<TermAssign>> "}" => {
             let role_name = name.clone();
             (name, role_name, items)
         },
+};
+
+TermAssign: (String, String) = {
+    <TermIdent> "=" <TermIdent>,
+    <x: TermIdent> => {
+        let xx = x.clone();
+        (x, xx)
+    },
 };
 
 
@@ -147,8 +155,16 @@ SimpleExpression: ast::Expression = {
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
     "self" "." "data" => ast::Expression::SelfData,
-    <name: TypeIdent> "{" <fields: Comma<Assignment<Expression>>> "}"
+    <name: TypeIdent> "{" <fields: Comma<FieldAssign>> "}"
         => ast::Expression::Data { <> },
+};
+
+FieldAssign: (String, ast::Expression) = {
+    <TermIdent> "=" <Expression>,
+    <x: TermIdent> => {
+        let expr = ast::Expression::Var(x.clone());
+        (x, expr)
+    },
 };
 
 Comparison: ast::Expression = {
@@ -193,14 +209,6 @@ Number: f64 = {
 //
 //  General Purpose Things
 //
-
-Dict<T>: Dict<T> = {
-    <Comma<Assignment<T>>> => <>.into_iter().collect()
-};
-
-Assignment<T>: (String, T) = {
-    <TermIdent> "=" <T>
-};
 
 Ident: String = { TermIdent, TypeIdent };
 
