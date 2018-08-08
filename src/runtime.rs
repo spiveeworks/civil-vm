@@ -32,6 +32,7 @@ pub enum Statement {
     },
     State(Expression),
     Wait(Expression),
+    Return(Vec<Expression>),
     Branch {
         condition: Expression,
         break_offset: usize,
@@ -193,7 +194,7 @@ pub fn execute_algorithm<G: Flop>(
     mut pc: usize,
     mut has_state: bool,
 ) -> Vec<data::Field> {
-    let result = None;
+    let mut result = None;
 
     let type_name = {
         let object = object.borrow(game.totem());
@@ -283,7 +284,18 @@ pub fn execute_algorithm<G: Flop>(
                     time,
                 );
 
+                // TODO only break if not followed by another
+                //   breaking statement, i.e. return
                 break;
+            },
+            Statement::Return(ref vals) => {
+                let vals = evaluate_expressions(
+                    game,
+                    vals,
+                    &mut vars,
+                    &object,
+                );
+                result = Some(vals);
             },
 
             Statement::Branch {
