@@ -4,14 +4,14 @@ use data;
 use runtime;
 
 pub enum TableTerm {
-    Action(runtime::Algorithm),
+    Function(runtime::Algorithm),
     Constructor(runtime::Algorithm),
 }
 
 impl TableTerm {
     pub fn algorithm(self: &Self) -> &runtime::Algorithm {
         match *self {
-            TableTerm::Action(ref result) => result,
+            TableTerm::Function(ref result) => result,
             TableTerm::Constructor(ref result) => result,
         }
     }
@@ -24,6 +24,6 @@ pub struct Table {
 pub type Signature = Dict<SignatureTerm>;
 
 pub enum SignatureTerm {
-    Initializer(Vec<data::FieldType>),
-    Action(Vec<data::FieldType>),
+    Constructor(Vec<data::FieldType>),
+    Function(Vec<data::FieldType>),
 }

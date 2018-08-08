@@ -1,8 +1,8 @@
-RootRole := role { init: initializer() }
+RootRole := role { init: ctor() }
 
 Root := RootRole { init = init }
 
-init := initializer() {
+init := ctor() {
     self.data = Null {};
     looper = Looper.Looper.run();
 }

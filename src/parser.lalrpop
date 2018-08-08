@@ -28,8 +28,8 @@ Item: (String, item::Item) = {
 };
 
 TableTerm: (String, table::TableTerm) = {
-    Initializer => (<>.0, table::TableTerm::Constructor(<>.1)),
-    Action => (<>.0, table::TableTerm::Action(<>.1)),
+    Constructor => (<>.0, table::TableTerm::Constructor(<>.1)),
+    Function => (<>.0, table::TableTerm::Function(<>.1)),
 };
 
 //
@@ -46,10 +46,10 @@ TableSignatureTerm: (String, table::SignatureTerm) = {
 };
 
 TermSignature: table::SignatureTerm = {
-    "action" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Action(<>),
-    "initializer" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Initializer(<>),
+    "fun" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Function(<>),
+    "ctor" "(" <Comma<DataType>> ")"
+        => table::SignatureTerm::Constructor(<>),
 };
 
 DataType: data::FieldType = {
@@ -65,12 +65,12 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //  Algorithms
 //
 
-Initializer: (String, runtime::Algorithm) = {
-    <TermIdent> ":=" "initializer" <Algorithm>,
+Constructor: (String, runtime::Algorithm) = {
+    <TermIdent> ":=" "ctor" <Algorithm>,
 };
 
-Action: (String, runtime::Algorithm) = {
-    <TermIdent> ":=" "action" <Algorithm>,
+Function: (String, runtime::Algorithm) = {
+    <TermIdent> ":=" "fun" <Algorithm>,
 };
 
 Algorithm: runtime::Algorithm = {
