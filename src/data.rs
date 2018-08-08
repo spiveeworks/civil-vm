@@ -7,7 +7,7 @@ use item;
 
 pub enum FieldType {
     Num,
-    VRef(item::TableIdent),
+    VRef(item::InterfaceIdent),
     TRef(String),
 }
 

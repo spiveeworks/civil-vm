@@ -2,9 +2,9 @@ use prelude::*;
 
 use ast;
 use data;
+use interface;
 use item;
 use runtime;
-use table;
 
 grammar;
 
@@ -17,46 +17,42 @@ pub Type: item::ObjectType = {
 };
 
 Item: (String, item::Item) = {
-    TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
-    TableTerm => (<>.0, item::Item::TableTerm(<>.1)),
-    TableInstance => {
-        let instance_name = <>.0;
-        let signature = <>.1;
+    Role => (<>.0, item::Item::Role(<>.1)),
+    Constructor => (<>.0, item::Item::Constructor(<>.1)),
+    Function => (<>.0, item::Item::Function(<>.1)),
+    Interface => {
+        let interface_name = <>.0;
+        let role_name = <>.1;
         let implementors = <>.2.into_iter().collect();
-        (instance_name, item::Item::TableInstance { signature, implementors })
+        (interface_name, item::Item::Interface { role_name, implementors })
     },
 };
 
-TableTerm: (String, table::TableTerm) = {
-    Constructor => (<>.0, table::TableTerm::Constructor(<>.1)),
-    Function => (<>.0, table::TableTerm::Function(<>.1)),
-};
-
 //
-//  Tables
+//  Interfaces
 //
 
-TableSignature: (String, Dict<table::SignatureTerm>) = {
-    <name: TypeIdent> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+Role: (String, Dict<interface::RoleTerm>) = {
+    <name: TypeIdent> ":=" "role" "{" <terms: Comma<RoleTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 
-TableSignatureTerm: (String, table::SignatureTerm) = {
+RoleTerm: (String, interface::RoleTerm) = {
     <TermIdent> ":" <TermSignature>,
 };
 
-TermSignature: table::SignatureTerm = {
+TermSignature: interface::RoleTerm = {
     "fun" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Function(<>),
+        => interface::RoleTerm::Function(<>),
     "ctor" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Constructor(<>),
+        => interface::RoleTerm::Constructor(<>),
 };
 
 DataType: data::FieldType = {
     "Num" => data::FieldType::Num,
 };
 
-TableInstance: (String, String, Vec<(String, String)>) = {
+Interface: (String, String, Vec<(String, String)>) = {
     <TypeIdent> ":=" <TypeIdent> "{" <Comma<Assignment<TermIdent>>> "}",
 };
 
