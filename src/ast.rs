@@ -17,8 +17,6 @@ pub enum Statement {
         results: Vec<String>,
     },
     State(Expression),
-    // TODO just overwrite state instead of explicitly cancelling?
-    CancelWait,
     WhileLoop {
         condition: Expression,
         block: Vec<Statement>,
@@ -107,7 +105,6 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
             }
         },
         State(state) => runtime::Statement::State(convert_expression(state)),
-        CancelWait => runtime::Statement::CancelWait,
         WhileLoop {
             condition,
             block,

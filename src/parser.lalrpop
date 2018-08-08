@@ -92,7 +92,6 @@ Statement: ast::Statement = {
     "self" "." "data" "=" <Expression> ";" => {
         ast::Statement::State(<>)
     },
-    "cancel;" => ast::Statement::CancelWait,
 
     "while" <condition: Expression> <block: Block>
         => ast::Statement::WhileLoop { <> },

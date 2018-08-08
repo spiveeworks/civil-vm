@@ -37,7 +37,6 @@ pub enum Statement {
     },
     State(Expression),
     Wait(Expression),
-    CancelWait,
     Branch {
         condition: Expression,
         break_offset: usize,
@@ -345,10 +344,6 @@ pub fn execute_algorithm<G: Flop>(
                 }
             },
             Statement::State(ref state) => {
-                if has_state {
-                    panic!("Tried to overwrite state without cancelling");
-                }
-
                 let (state_name, data) = evaluate_expression(
                     game,
                     state,
@@ -357,6 +352,12 @@ pub fn execute_algorithm<G: Flop>(
                 ).unwrap_data();
 
                 let object = object.borrow_mut(game.totem());
+
+                let event = object.event.take();
+                if let Some(event::EventHandle(ref time, id)) = event {
+                    game.event_queue().cancel_event(time, id);
+                }
+
                 object.state_name = state_name;
                 object.data = data;
 
@@ -387,17 +388,6 @@ pub fn execute_algorithm<G: Flop>(
                 );
 
                 break;
-            },
-            Statement::CancelWait => {
-                let object = object.borrow_mut(game.totem());
-                let event = object.event.take();
-                if let Some(event::EventHandle(ref time, id)) = event {
-                    game.event_queue().cancel_event(time, id);
-                }
-
-                object.data = Dict::new();
-
-                has_state = false;
             },
 
             Statement::Branch {
