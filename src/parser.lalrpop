@@ -54,6 +54,11 @@ DataType: data::FieldType = {
 
 Interface: (String, String, Vec<(String, String)>) = {
     <TypeIdent> ":=" <TypeIdent> "{" <Comma<Assignment<TermIdent>>> "}",
+    <name: TypeIdent> ":=" "interface" "{"
+        <items: Comma<Assignment<TermIdent>>> "}" => {
+            let role_name = name.clone();
+            (name, role_name, items)
+        },
 };
 
 

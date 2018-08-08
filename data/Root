@@ -1,6 +1,4 @@
-RootRole := role { init: ctor() }
-
-Root := RootRole { init = init }
+Root := interface { init = init }
 
 init := ctor() {
     self.data = Null {};

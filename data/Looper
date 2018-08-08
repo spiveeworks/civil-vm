@@ -1,8 +1,4 @@
-LooperRole := role {
-    run: ctor(),
-}
-
-Looper := LooperRole { run = run }
+Looper := interface { run = run }
 
 run := ctor() {
     while True {} {
