@@ -32,6 +32,7 @@ pub enum Statement {
     },
     State(Expression),
     Wait(Expression),
+    Return(Vec<Expression>),
     Branch {
         condition: Expression,
         break_offset: usize,
@@ -193,22 +194,55 @@ pub fn execute_algorithm<G: Flop>(
     mut pc: usize,
     mut has_state: bool,
 ) -> Vec<data::Field> {
-    let result = None;
+    let mut result = None;
 
     let type_name = {
         let object = object.borrow(game.totem());
         object.type_name.clone()
     };
 
-    let code = item::get_algorithm(
+    let code: *const [Statement] = &*item::get_algorithm(
         game.types(),
         &type_name,
         &table_name,
         &action_name
-    ).steps.clone();
+    ).steps;
+    // safe because we dont edit code at runtime
+    // way better than cloning
+    // if you get a segfault, try cloning code again i guess?
+    let code = unsafe { &*code };
 
-    while pc < code.len() && result.is_none() {
-        match code[pc] {
+    while pc < code.len() {
+        if let Statement::Wait(time) = &code[pc] {
+            let time_ = evaluate_expression(
+                game,
+                time,
+                &mut vars,
+                &object,
+            ).num();
+            let time = Time::try_from(time_)
+                .expect("Num Error");
+            let (totem, _, event_queue) = game.parts();
+            wait(
+                totem,
+                event_queue,
+
+                &object,
+
+                table_name,
+                action_name,
+                pc,
+
+                time,
+            );
+
+            break;
+        } else if result.is_some() {
+            break;
+        } else { match code[pc] {
+            Statement::Wait(_) => {
+                unreachable!();
+            },
             Statement::Debug(ref to_print) => {
                 println!("Debug: {}", to_print);
             },
@@ -260,30 +294,14 @@ pub fn execute_algorithm<G: Flop>(
                 has_state = true;
             }
 
-            Statement::Wait(ref time) => {
-                let time_ = evaluate_expression(
+            Statement::Return(ref vals) => {
+                let vals = evaluate_expressions(
                     game,
-                    time,
+                    vals,
                     &mut vars,
                     &object,
-                ).num();
-                let time = Time::try_from(time_)
-                    .expect("Num Error");
-                let (totem, _, event_queue) = game.parts();
-                wait(
-                    totem,
-                    event_queue,
-
-                    &object,
-
-                    table_name,
-                    action_name,
-                    pc,
-
-                    time,
                 );
-
-                break;
+                result = Some(vals);
             },
 
             Statement::Branch {
@@ -332,7 +350,7 @@ pub fn execute_algorithm<G: Flop>(
                 pc += break_offset;
                 continue;
             },
-        }
+        }}
 
         pc += 1;
     }

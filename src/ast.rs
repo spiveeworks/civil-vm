@@ -226,6 +226,10 @@ fn convert_simple_statement(names: &mut Vec<String>, args: &mut Vec<Expression>)
             assert!(args.len() == 1, "wait expects 1 argument");
             let arg = args.pop().unwrap();
             return Some(runtime::Statement::Wait(convert_expression(arg)));
+        } else if names[0] == "return" {
+            let args = ::std::mem::replace(args, Vec::new());
+            let args = convert_expressions(args);
+            return Some(runtime::Statement::Return(args));
         }
     }
     None
