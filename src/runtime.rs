@@ -406,9 +406,9 @@ fn evaluate_expression_into<G: Flop>(
             );
             let alg_name = item::get_algorithm_name(
                 game.types(),
-                &type_name.clone(),
-                &table_name.clone(),
-                &init_name.clone(),
+                type_name,
+                table_name,
+                init_name,
             ).clone();
             let tref = execute_ctor(
                 game,
@@ -435,6 +435,21 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 &object,
             );
+
+            if !vars.contains_key(object_name) {
+                let type_name = object_name;
+
+                let tref = execute_ctor(
+                    game,
+                    type_name.clone(),
+                    action_name.clone(),
+                    args
+                );
+
+                let result_term = data::Field::TRef(tref);
+                result.push(result_term);
+                return;
+            }
             use data::Field::*;
             if let Set(x) = vars.get_mut(object_name).unwrap() {
                 if action_name == "add" {
@@ -459,17 +474,32 @@ fn evaluate_expression_into<G: Flop>(
                 // exists
                 return;
             }
-            let vref = vars[object_name].clone().unwrap_vref();
-            let tref = vref.data;
 
-            let type_name = tref.borrow(game.totem()).type_name.clone();
-            let interface_name = vref.table;
-            let alg_name = item::get_algorithm_name(
-                game.types(),
-                &type_name,
-                &interface_name,
-                action_name,
-            ).clone();
+
+            let tref;
+            let alg_name;
+            match vars[object_name].clone() {
+                TRef(tref_) => {
+                    tref = tref_;
+                    alg_name = action_name.clone();
+                },
+                VRef(vref) => {
+                    tref = vref.data;
+
+                    let (totem, types, _) = game.parts();
+                    let type_name = &tref.borrow(totem).type_name;
+                    let interface_name = vref.table;
+                    alg_name = item::get_algorithm_name(
+                        types,
+                        type_name,
+                        &interface_name,
+                        action_name,
+                    ).clone();
+                },
+                _ => {
+                    panic!("Method called on simple data");
+                },
+            }
 
             let result_vals = execute_algorithm(
                 game,
