@@ -96,122 +96,75 @@ impl Algorithm {
     }
 }
 
-/// Executes a constructor, and wraps it in an appropriate vref
+/// Executes a constructor on a fresh object
 pub fn execute_ctor<G: Flop>(
     game: &mut G,
     type_name: String,
-    table_name: String,
     init_name: String,
     args: Vec<data::Field>,
-) -> data::ObjectRef {
-    let args = item::get_algorithm(
-        &game.types(),
-        &type_name,
-        &table_name,
-        &init_name,
-    ).bind_args(args);
-
-    let table = table_name.clone();
-    let data = data::ObjectData::new(type_name);
+) -> data::Object {
+    let tref = data::ObjectData::new(type_name);
 
     execute_algorithm(
         game,
-        Strong::clone(&data),
-        table_name,
+        Strong::clone(&tref),
         init_name,
 
-        args,
-        0,
-        false,
+        ExecType::Ctor(args),
     );
 
-    data::ObjectRef { table, data }
+    tref
 }
 
-pub fn resume_algorithm<G: Flop>(
-    game: &mut G,
-    object: Strong<data::ObjectData>,
-    table_name: String,
-    action_name: String,
-    pc: usize,
-) -> Vec<data::Field> {
-    let vars = {
-        let object = object.borrow_mut(game.totem());
-        object.event.take().unwrap();
 
-        mem::replace(&mut object.data, Dict::new())
-    };
-
-    execute_algorithm(
-        game,
-        object,
-        table_name,
-        action_name,
-
-        vars,
-        pc,
-        false,
-    )
-}
-
-pub fn execute_function<G: Flop>(
-    game: &mut G,
-    object: Strong<data::ObjectData>,
-    table_name: String,
-    action_name: String,
-
-    args: Vec<data::Field>,
-) -> Vec<data::Field> {
-    let vars = {
-        let (totem, types, _) = game.parts();
-        item::get_algorithm(
-            types,
-            &object.borrow(totem).type_name,
-            &table_name,
-            &action_name,
-        ).bind_args(args)
-    };
-    execute_algorithm(
-        game,
-        object,
-        table_name,
-        action_name,
-
-        vars,
-        0,
-        true,
-    )
+pub enum ExecType {
+    Ctor(Vec<data::Field>),
+    Fun(Vec<data::Field>),
+    Resume(usize),
 }
 
 pub fn execute_algorithm<G: Flop>(
     game: &mut G,
 
     object: Strong<data::ObjectData>,
-    table_name: String,
-    action_name: String,
+    algorithm_name: String,
 
-    mut vars: Dict<data::Field>,
-    mut pc: usize,
-    mut has_state: bool,
+    input: ExecType,
 ) -> Vec<data::Field> {
     let mut result = None;
+    let mut pc = 0;
+    let mut has_state = false;
+    let mut vars;
 
     let type_name = {
         let object = object.borrow(game.totem());
         object.type_name.clone()
     };
 
-    let code: *const [Statement] = &*item::get_algorithm(
+
+    let alg = &*item::get_algorithm(
         game.types(),
         &type_name,
-        &table_name,
-        &action_name
-    ).steps;
-    // safe because we dont edit code at runtime
-    // way better than cloning
-    // if you get a segfault, try cloning code again i guess?
-    let code = unsafe { &*code };
+        &algorithm_name
+    );
 
+    if let ExecType::Fun(_) = input { has_state = true; }
+    match input {
+        ExecType::Fun(args) | ExecType::Ctor(args) => {
+            vars = alg.bind_args(args);
+        },
+        ExecType::Resume(pc_) => {
+            pc = pc_;
+            vars = {
+                let object = object.borrow_mut(game.totem());
+                object.event.take().unwrap();
+
+                mem::replace(&mut object.data, Dict::new())
+            };
+        },
+    }
+
+    let code = &alg.steps;
     while pc < code.len() {
         if let Statement::Wait(time) = &code[pc] {
             let time_ = evaluate_expression(
@@ -229,8 +182,7 @@ pub fn execute_algorithm<G: Flop>(
 
                 &object,
 
-                table_name,
-                action_name,
+                algorithm_name,
                 pc,
 
                 time,
@@ -368,7 +320,6 @@ fn wait(
 
     object_: &data::Object,
 
-    table_name: String,
     action_name: String,
     mut pc: usize,
 
@@ -377,7 +328,7 @@ fn wait(
     let object = Strong::clone(object_);
     pc += 1;
 
-    let event = event::Event { object, table_name, action_name, pc };
+    let event = event::Event { object, action_name, pc };
 
     let absolute_time = event_queue.now() + time;
     let id = event_queue.enqueue_absolute(event, absolute_time);
@@ -453,15 +404,24 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 object,
             );
-            let result_ref = execute_ctor(
+            let alg_name = item::get_algorithm_name(
+                game.types(),
+                type_name,
+                table_name,
+                init_name,
+            ).clone();
+            let tref = execute_ctor(
                 game,
                 type_name.clone(),
-                table_name.clone(),
-                init_name.clone(),
+                alg_name,
                 args
             );
 
-            let result_term = data::Field::VRef(result_ref);
+            let vref = data::ObjectRef {
+                data: tref,
+                table: table_name.clone(),
+            };
+            let result_term = data::Field::VRef(vref);
             result.push(result_term);
         },
         ExecObject {
@@ -475,7 +435,23 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 &object,
             );
-            if let data::Field::Set(x) = vars.get_mut(object_name).unwrap() {
+
+            if !vars.contains_key(object_name) {
+                let type_name = object_name;
+
+                let tref = execute_ctor(
+                    game,
+                    type_name.clone(),
+                    action_name.clone(),
+                    args
+                );
+
+                let result_term = data::Field::TRef(tref);
+                result.push(result_term);
+                return;
+            }
+            use data::Field::*;
+            if let Set(x) = vars.get_mut(object_name).unwrap() {
                 if action_name == "add" {
                     assert!(args.len() == 1, "Set.add expects one arg");
                     let key = args.pop().unwrap().unwrap_vref();
@@ -498,13 +474,38 @@ fn evaluate_expression_into<G: Flop>(
                 // exists
                 return;
             }
-            let vref = vars[object_name].clone().unwrap_vref();
-            let result_vals = execute_function(
+
+
+            let tref;
+            let alg_name;
+            match vars[object_name].clone() {
+                TRef(tref_) => {
+                    tref = tref_;
+                    alg_name = action_name.clone();
+                },
+                VRef(vref) => {
+                    tref = vref.data;
+
+                    let (totem, types, _) = game.parts();
+                    let type_name = &tref.borrow(totem).type_name;
+                    let interface_name = vref.table;
+                    alg_name = item::get_algorithm_name(
+                        types,
+                        type_name,
+                        &interface_name,
+                        action_name,
+                    ).clone();
+                },
+                _ => {
+                    panic!("Method called on simple data");
+                },
+            }
+
+            let result_vals = execute_algorithm(
                 game,
-                vref.data,
-                vref.table,
-                action_name.clone(),
-                args
+                tref,
+                alg_name,
+                ExecType::Fun(args),
             );
 
             result.extend(result_vals);
