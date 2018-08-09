@@ -1,10 +1,7 @@
 use prelude::*;
 
 use ast;
-use data;
-use interface;
 use item;
-use runtime;
 
 grammar;
 
@@ -13,7 +10,7 @@ grammar;
 //
 
 pub Type: item::ObjectType = {
-    <Item*> => item::link(<>),
+    <Item*> => item::collect(<>),
 };
 
 Item: (String, item::Item) = {
@@ -32,24 +29,24 @@ Item: (String, item::Item) = {
 //  Interfaces
 //
 
-Role: (String, Dict<interface::RoleTerm>) = {
+Role: (String, Dict<item::RoleTerm>) = {
     <name: TypeIdent> ":=" "role" "{" <terms: Comma<RoleTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 
-RoleTerm: (String, interface::RoleTerm) = {
+RoleTerm: (String, item::RoleTerm) = {
     <TermIdent> ":" <TermSignature>,
 };
 
-TermSignature: interface::RoleTerm = {
+TermSignature: item::RoleTerm = {
     "fun" "(" <Comma<DataType>> ")"
-        => interface::RoleTerm::Function(<>),
+        => item::RoleTerm::Function(<>),
     "ctor" "(" <Comma<DataType>> ")"
-        => interface::RoleTerm::Constructor(<>),
+        => item::RoleTerm::Constructor(<>),
 };
 
-DataType: data::FieldType = {
-    "Num" => data::FieldType::Num,
+DataType: item::FieldType = {
+    "Num" => item::FieldType::Num,
 };
 
 Interface: (String, String, Vec<(String, String)>) = {
@@ -74,17 +71,17 @@ TermAssign: (String, String) = {
 //  Algorithms
 //
 
-Constructor: (String, runtime::Algorithm) = {
+Constructor: (String, ast::Algorithm) = {
     <TermIdent> ":=" "ctor" <Algorithm>,
 };
 
-Function: (String, runtime::Algorithm) = {
+Function: (String, ast::Algorithm) = {
     <TermIdent> ":=" "fun" <Algorithm>,
 };
 
-Algorithm: runtime::Algorithm = {
+Algorithm: ast::Algorithm = {
     "(" <param_list: Comma<TermIdent>> ")" <steps: Block> => {
-        ast::convert_algorithm(ast::Algorithm { <> })
+        ast::Algorithm { <> }
     },
 };
 

@@ -104,7 +104,7 @@ pub fn execute_ctor<G: Flop>(
     init_name: String,
     args: Vec<data::Field>,
 ) -> data::ObjectRef {
-    let args = item::get_algorithm(
+    let args = item::get_algorithm_interface(
         &game.types(),
         &type_name,
         &table_name,
@@ -164,7 +164,7 @@ pub fn execute_function<G: Flop>(
 ) -> Vec<data::Field> {
     let vars = {
         let (totem, types, _) = game.parts();
-        item::get_algorithm(
+        item::get_algorithm_interface(
             types,
             &object.borrow(totem).type_name,
             &table_name,
@@ -201,7 +201,7 @@ pub fn execute_algorithm<G: Flop>(
         object.type_name.clone()
     };
 
-    let code: *const [Statement] = &*item::get_algorithm(
+    let code: *const [Statement] = &*item::get_algorithm_interface(
         game.types(),
         &type_name,
         &table_name,

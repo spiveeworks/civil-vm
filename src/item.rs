@@ -1,68 +1,82 @@
 use prelude::*;
 
-use interface;
+use ast;
 use runtime;
 
-pub type ObjectType = Dict<interface::Interface>;
-
-pub type InterfaceIdent = (String, String);
+//
+// AST
+//
 
 pub enum Item {
-    Function(runtime::Algorithm),
-    Constructor(runtime::Algorithm),
+    Function(ast::Algorithm),
+    Constructor(ast::Algorithm),
     Interface {
         role_name: String,
         implementors: Dict<String>,
     },
-    Role(interface::Role),
+    Role(Role),
 }
 
-pub fn link(items: Vec<(String, Item)>) -> ObjectType {
-    let mut table_defs = Vec::new();
-    let mut algs = Dict::new();
+pub enum FieldType {
+    Num,
+    VRef { type_name: String, interface_name: String },
+    TRef(String),
+}
+
+pub type Role = Dict<RoleTerm>;
+
+pub enum RoleTerm {
+    Constructor(Vec<FieldType>),
+    Function(Vec<FieldType>),
+}
+
+//
+// runtime
+//
+
+pub struct Interface {
+    pub implementors: Dict<String>,
+}
+
+pub struct ObjectType {
+    interfaces: Dict<Interface>,
+    algorithms: Dict<runtime::Algorithm>,
+}
+
+pub fn collect(items: Vec<(String, Item)>) -> ObjectType {
+    let mut interfaces = Dict::new();
+    let mut algorithms = Dict::new();
     let mut roles = Dict::new();
+
     for (name, item) in items {
-        use self::Item::*;
         match item {
-            Interface { role_name, implementors } => {
+            Item::Interface { role_name, implementors } => {
                 drop(role_name);  // will be useful for static analysis though
-                table_defs.push((name, implementors));
+                interfaces.insert(name, Interface { implementors });
             },
-            Function(term) => {
-                algs.insert(name, term);
+            Item::Function(alg) | Item::Constructor(alg) => {
+                let alg = ast::convert_algorithm(alg);
+                algorithms.insert(name, alg);
             },
-            Constructor(term) => {
-                algs.insert(name, term);
-            },
-            Role(role) => {
+            Item::Role(role) => {
                 roles.insert(name, role);
             },
         }
     }
 
-    let mut tables = Dict::new();
-    for (name, table_def) in table_defs {
-        let mut algorithms = Dict::new();
-        for (method, implementor) in table_def {
-            let it = algs.remove(&implementor)
-                .expect("Function not defined");
-            algorithms.insert(method, it);
-        }
-        let table = interface::Interface { algorithms };
-        tables.insert(name, table);
-    }
-    tables
+    ObjectType { interfaces, algorithms }
 }
 
-pub fn get_algorithm<'a>(
+pub fn get_algorithm_interface<'a>(
     types: &'a Dict<ObjectType>,
 
     object_type_name: &String,
-    table_name: &String,
-    runtime_name: &String,
+    interface_name: &String,
+    method_name: &String,
 ) -> &'a runtime::Algorithm {
     let object_type = &types[object_type_name];
-    let table = &object_type[table_name];
-    &table.algorithms[runtime_name]
+    let interface = &object_type.interfaces[interface_name];
+    let alg_name = &interface.implementors[method_name];
+    &object_type.algorithms[alg_name]
 }
 
