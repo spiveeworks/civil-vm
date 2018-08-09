@@ -1,10 +1,6 @@
-LooperRole := role {
-    run: initializer(),
-}
+Looper := interface { run }
 
-Looper := LooperRole { run = run }
-
-run := initializer() {
+run := ctor() {
     while True {} {
         self.data = Wait {};
         wait(1);

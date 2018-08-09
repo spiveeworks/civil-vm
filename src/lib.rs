@@ -5,11 +5,11 @@ pub mod ast;
 pub mod data;
 pub mod event;
 pub mod instance;
+pub mod interface;
 pub mod item;
 pub mod load_types;
 pub mod parser;
 pub mod runtime;
-pub mod table;
 
 pub mod prelude {
     pub use instance::Flop;

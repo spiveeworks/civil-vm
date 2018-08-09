@@ -26,7 +26,7 @@ impl FlopInstance {
         root_table: String,
         init: String,
     ) {
-        let _root = runtime::execute_init(
+        let _root = runtime::execute_ctor(
             game,
 
             root_type,
