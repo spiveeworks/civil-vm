@@ -436,49 +436,54 @@ fn evaluate_expression_into<G: Flop>(
                 &object,
             );
 
-            if !vars.contains_key(object_name) {
-                let type_name = object_name;
-
-                let tref = execute_ctor(
-                    game,
-                    type_name.clone(),
-                    action_name.clone(),
-                    args
-                );
-
-                let result_term = data::Field::TRef(tref);
-                result.push(result_term);
-                return;
-            }
             use data::Field::*;
-            if let Set(x) = vars.get_mut(object_name).unwrap() {
-                if action_name == "add" {
-                    assert!(args.len() == 1, "Set.add expects one arg");
-                    let key = args.pop().unwrap().unwrap_vref();
-                    x.insert(data::ObjectKey(key), ());
-                } else if action_name == "remove" {
-                    assert!(args.len() == 1, "Set.remove expects one arg");
-                    let key = args.pop().unwrap().unwrap_vref();
-                    x.remove(&data::ObjectKey(key));
-                } else if action_name == "next" {
-                    assert!(args.len() == 0, "Set.next expects no args");
-                    let (val, ()) = data::set_pop(x)
-                        .expect("Cannot remove from empty set");
-                    result.push(data::Field::VRef(val));
-                } else if action_name == "not_empty" {
-                    // TODO !set.is_empty()
-                    assert!(args.len() == 0, "Set.not_empty expects no args");
-                    result.push(data::Field::from_bool(!x.is_empty()));
+            if object_name != "self" {
+                if !vars.contains_key(object_name) {
+                    let type_name = object_name;
+
+                    let tref = execute_ctor(
+                        game,
+                        type_name.clone(),
+                        action_name.clone(),
+                        args
+                    );
+
+                    let result_term = data::Field::TRef(tref);
+                    result.push(result_term);
+                    return;
                 }
-                // return so that we can continue in a scope where vars still
-                // exists
-                return;
+                if let Set(x) = vars.get_mut(object_name).unwrap() {
+                    if action_name == "add" {
+                        assert!(args.len() == 1, "Set.add expects one arg");
+                        let key = args.pop().unwrap().unwrap_vref();
+                        x.insert(data::ObjectKey(key), ());
+                    } else if action_name == "remove" {
+                        assert!(args.len() == 1, "Set.remove expects one arg");
+                        let key = args.pop().unwrap().unwrap_vref();
+                        x.remove(&data::ObjectKey(key));
+                    } else if action_name == "next" {
+                        assert!(args.len() == 0, "Set.next expects no args");
+                        let (val, ()) = data::set_pop(x)
+                            .expect("Cannot remove from empty set");
+                        result.push(data::Field::VRef(val));
+                    } else if action_name == "not_empty" {
+                        // TODO !set.is_empty()
+                        assert!(args.len() == 0, "Set.not_empty expects no args");
+                        result.push(data::Field::from_bool(!x.is_empty()));
+                    }
+                    // return so that we can continue in a scope where vars still
+                    // exists
+                    return;
+                }
             }
 
 
             let tref;
             let alg_name;
-            match vars[object_name].clone() {
+            if object_name == "self" {
+                tref = object.clone();
+                alg_name = action_name.clone();
+            } else { match vars[object_name].clone() {
                 TRef(tref_) => {
                     tref = tref_;
                     alg_name = action_name.clone();
@@ -499,7 +504,7 @@ fn evaluate_expression_into<G: Flop>(
                 _ => {
                     panic!("Method called on simple data");
                 },
-            }
+            }}
 
             let result_vals = execute_algorithm(
                 game,

@@ -152,6 +152,8 @@ SimpleExpression: ast::Expression = {
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
     "self" "." "data" => ast::Expression::SelfData,
+    "self" "." <name: Ident> "(" <args: Comma<Expression>> ")"
+        => ast::Expression::Method { names: vec!["self".into(), name], args },
     <name: TypeIdent> "{" <fields: Comma<FieldAssign>> "}"
         => ast::Expression::Data { <> },
 };
@@ -211,6 +213,7 @@ Ident: String = { TermIdent, TypeIdent };
 
 TermIdent: String = {
     r"[a-z_][a-zA-Z0-9_]*" => <>.into(),
+    "data" => <>.into(),
 };
 
 TypeIdent: String = {
