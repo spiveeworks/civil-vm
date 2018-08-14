@@ -19,9 +19,15 @@ Item: (String, item::Item) = {
     Function => (<>.0, item::Item::Function(<>.1)),
     Interface => {
         let interface_name = <>.0;
-        let role_name = <>.1;
-        let implementors = <>.2.into_iter().collect();
-        (interface_name, item::Item::Interface { role_name, implementors })
+        let type_name = <>.1;
+        let role_name = <>.2;
+        let implementors = <>.3.into_iter().collect();
+        let item = item::Item::Interface {
+            type_name,
+            role_name,
+            implementors,
+        };
+        (interface_name, item)
     },
 };
 
@@ -49,12 +55,13 @@ DataType: item::FieldType = {
     "Num" => item::FieldType::Num,
 };
 
-Interface: (String, String, Vec<(String, String)>) = {
-    <TypeIdent> ":=" <TypeIdent> "{" <Comma<TermAssign>> "}",
+Interface: (String, Option<String>, String, Vec<(String, String)>) = {
+    <TypeIdent> ":=" <(<TypeIdent> ".")?> <TypeIdent>
+        "{" <Comma<TermAssign>> "}",
     <name: TypeIdent> ":=" "interface" "{"
         <items: Comma<TermAssign>> "}" => {
             let role_name = name.clone();
-            (name, role_name, items)
+            (name, None, role_name, items)
         },
 };
 

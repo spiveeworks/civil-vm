@@ -11,6 +11,7 @@ pub enum Item {
     Function(ast::Algorithm),
     Constructor(ast::Algorithm),
     Interface {
+        type_name: Option<String>,
         role_name: String,
         implementors: Dict<String>,
     },
@@ -50,8 +51,10 @@ pub fn collect(items: Vec<(String, Item)>) -> ObjectType {
 
     for (name, item) in items {
         match item {
-            Item::Interface { role_name, implementors } => {
-                drop(role_name);  // will be useful for static analysis though
+            Item::Interface { type_name, role_name, implementors } => {
+                // these will be useful for static analysis one day
+                drop(type_name);
+                drop(role_name);
                 interfaces.insert(name, Interface { implementors });
             },
             Item::Function(alg) | Item::Constructor(alg) => {
