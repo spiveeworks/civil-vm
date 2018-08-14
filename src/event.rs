@@ -19,11 +19,11 @@ pub struct Event {
 
 impl Event {
     pub fn invoke<G: Flop>(self: Self, game: &mut G) {
-        runtime::execute_algorithm(
+        runtime::resume_algorithm(
             game,
             self.object,
             self.action_name,
-            runtime::ExecType::Resume(self.pc),
+            self.pc,
         );
     }
 }

@@ -96,8 +96,35 @@ impl Algorithm {
     }
 }
 
+/// Executes a constructor on a fresh object and wrap in a vref
+pub fn execute_ctor_virtual<G: Flop>(
+    game: &mut G,
+    type_name: String,
+    interface_name: String,
+    init_name: String,
+    args: Vec<data::Field>,
+) -> data::ObjectRef {
+    let init_name = item::get_algorithm_name(
+        game.types(),
+        &type_name,
+        &interface_name,
+        &init_name,
+    ).clone();
+    let tref = execute_ctor_concrete(
+        game,
+        type_name,
+        init_name,
+
+        args,
+    );
+
+    let table = interface_name;
+    let data = tref;
+    data::ObjectRef { data, table }
+}
+
 /// Executes a constructor on a fresh object
-pub fn execute_ctor<G: Flop>(
+pub fn execute_ctor_concrete<G: Flop>(
     game: &mut G,
     type_name: String,
     init_name: String,
@@ -116,14 +143,69 @@ pub fn execute_ctor<G: Flop>(
     tref
 }
 
+/// Executes a function on a vref
+pub fn execute_fun_virtual<G: Flop>(
+    game: &mut G,
+    vref: data::ObjectRef,
+    alg_name: String,
+    args: Vec<data::Field>,
+) -> Vec<data::Field> {
+    let alg_name = {
+        let (totem, types, _) = game.parts();
+        let type_name = &vref.data.borrow(totem).type_name;
+        item::get_algorithm_name(
+            types,
+            &type_name,
+            &vref.table,
+            &alg_name,
+        ).clone()
+    };
+    execute_fun_concrete(
+        game,
+        vref.data,
+        alg_name,
 
-pub enum ExecType {
+        args,
+    )
+}
+
+/// Executes a constructor on a fresh object
+pub fn execute_fun_concrete<G: Flop>(
+    game: &mut G,
+    tref: data::Object,
+    alg_name: String,
+    args: Vec<data::Field>,
+) -> Vec<data::Field> {
+    execute_algorithm(
+        game,
+        tref,
+        alg_name,
+
+        ExecType::Fun(args),
+    )
+}
+
+pub fn resume_algorithm<G: Flop>(
+    game: &mut G,
+    object: data::Object,
+    alg_name: String,
+    pc: usize,
+) {
+    execute_algorithm(
+        game,
+        object,
+        alg_name,
+        ExecType::Resume(pc),
+    );
+}
+
+enum ExecType {
     Ctor(Vec<data::Field>),
     Fun(Vec<data::Field>),
     Resume(usize),
 }
 
-pub fn execute_algorithm<G: Flop>(
+fn execute_algorithm<G: Flop>(
     game: &mut G,
 
     object: Strong<data::ObjectData>,
@@ -404,23 +486,14 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 object,
             );
-            let alg_name = item::get_algorithm_name(
-                game.types(),
-                type_name,
-                table_name,
-                init_name,
-            ).clone();
-            let tref = execute_ctor(
+            let vref = execute_ctor_virtual(
                 game,
                 type_name.clone(),
-                alg_name,
+                table_name.clone(),
+                init_name.clone(),
                 args
             );
 
-            let vref = data::ObjectRef {
-                data: tref,
-                table: table_name.clone(),
-            };
             let result_term = data::Field::VRef(vref);
             result.push(result_term);
         },
@@ -441,7 +514,7 @@ fn evaluate_expression_into<G: Flop>(
                 if !vars.contains_key(object_name) {
                     let type_name = object_name;
 
-                    let tref = execute_ctor(
+                    let tref = execute_ctor_concrete(
                         game,
                         type_name.clone(),
                         action_name.clone(),
@@ -478,40 +551,35 @@ fn evaluate_expression_into<G: Flop>(
             }
 
 
-            let tref;
-            let alg_name;
+            let result_vals;
             if object_name == "self" {
-                tref = object.clone();
-                alg_name = action_name.clone();
+                result_vals = execute_fun_concrete(
+                    game,
+                    object.clone(),
+                    action_name.clone(),
+                    args,
+                );
             } else { match vars[object_name].clone() {
-                TRef(tref_) => {
-                    tref = tref_;
-                    alg_name = action_name.clone();
+                TRef(tref) => {
+                    result_vals = execute_fun_concrete(
+                        game,
+                        tref,
+                        action_name.clone(),
+                        args,
+                    );
                 },
                 VRef(vref) => {
-                    tref = vref.data;
-
-                    let (totem, types, _) = game.parts();
-                    let type_name = &tref.borrow(totem).type_name;
-                    let interface_name = vref.table;
-                    alg_name = item::get_algorithm_name(
-                        types,
-                        type_name,
-                        &interface_name,
-                        action_name,
-                    ).clone();
+                    result_vals = execute_fun_virtual(
+                        game,
+                        vref,
+                        action_name.clone(),
+                        args,
+                    )
                 },
                 _ => {
                     panic!("Method called on simple data");
                 },
             }}
-
-            let result_vals = execute_algorithm(
-                game,
-                tref,
-                alg_name,
-                ExecType::Fun(args),
-            );
 
             result.extend(result_vals);
         },

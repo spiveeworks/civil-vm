@@ -33,7 +33,7 @@ impl FlopInstance {
             &init,
         ).clone();
 
-        let _root = runtime::execute_ctor(
+        let _root = runtime::execute_ctor_concrete(
             game,
 
             root_type,
