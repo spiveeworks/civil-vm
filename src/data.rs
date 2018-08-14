@@ -3,13 +3,6 @@ use std::hash::{Hash, Hasher};
 use prelude::*;
 
 use event;
-use item;
-
-pub enum FieldType {
-    Num,
-    VRef(item::TableIdent),
-    TRef(String),
-}
 
 // we could use a union
 #[derive(Clone)]

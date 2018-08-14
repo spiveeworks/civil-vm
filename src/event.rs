@@ -13,23 +13,17 @@ pub struct EventHandle(pub Time, pub usize);
 pub struct Event {
     pub object: data::Object,
 
-    pub table_name: String,
     pub action_name: String,
     pub pc: usize,
 }
 
 impl Event {
     pub fn invoke<G: Flop>(self: Self, game: &mut G) {
-        runtime::execute_action(
+        runtime::resume_algorithm(
             game,
-
             self.object,
-            self.table_name,
             self.action_name,
-
-            None,
             self.pc,
-            true,
         );
     }
 }

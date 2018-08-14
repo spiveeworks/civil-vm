@@ -1,10 +1,7 @@
 use prelude::*;
 
 use ast;
-use data;
 use item;
-use runtime;
-use table;
 
 grammar;
 
@@ -13,51 +10,67 @@ grammar;
 //
 
 pub Type: item::ObjectType = {
-    <Item*> => item::link(<>),
+    <Item*> => item::collect(<>),
 };
 
 Item: (String, item::Item) = {
-    TableSignature => (<>.0, item::Item::TableSignature(<>.1)),
-    TableTerm => (<>.0, item::Item::TableTerm(<>.1)),
-    TableInstance => {
-        let instance_name = <>.0;
-        let signature = <>.1;
-        let implementors = <>.2.into_iter().collect();
-        (instance_name, item::Item::TableInstance { signature, implementors })
+    Role => (<>.0, item::Item::Role(<>.1)),
+    Constructor => (<>.0, item::Item::Constructor(<>.1)),
+    Function => (<>.0, item::Item::Function(<>.1)),
+    Interface => {
+        let interface_name = <>.0;
+        let type_name = <>.1;
+        let role_name = <>.2;
+        let implementors = <>.3.into_iter().collect();
+        let item = item::Item::Interface {
+            type_name,
+            role_name,
+            implementors,
+        };
+        (interface_name, item)
     },
 };
 
-TableTerm: (String, table::TableTerm) = {
-    Initializer => (<>.0, table::TableTerm::Constructor(<>.1)),
-    Action => (<>.0, table::TableTerm::Action(<>.1)),
-};
-
 //
-//  Tables
+//  Interfaces
 //
 
-TableSignature: (String, Dict<table::SignatureTerm>) = {
-    <name: TypeIdent> ":=" "role" "{" <terms: Comma<TableSignatureTerm>> "}" =>
+Role: (String, Dict<item::RoleTerm>) = {
+    <name: TypeIdent> ":=" "role" "{" <terms: Comma<RoleTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 
-TableSignatureTerm: (String, table::SignatureTerm) = {
+RoleTerm: (String, item::RoleTerm) = {
     <TermIdent> ":" <TermSignature>,
 };
 
-TermSignature: table::SignatureTerm = {
-    "action" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Action(<>),
-    "initializer" "(" <Comma<DataType>> ")"
-        => table::SignatureTerm::Initializer(<>),
+TermSignature: item::RoleTerm = {
+    "fun" "(" <Comma<DataType>> ")"
+        => item::RoleTerm::Function(<>),
+    "ctor" "(" <Comma<DataType>> ")"
+        => item::RoleTerm::Constructor(<>),
 };
 
-DataType: data::FieldType = {
-    "Num" => data::FieldType::Num,
+DataType: item::FieldType = {
+    "Num" => item::FieldType::Num,
 };
 
-TableInstance: (String, String, Vec<(String, String)>) = {
-    <TypeIdent> ":=" <TypeIdent> "{" <Comma<Assignment<TermIdent>>> "}",
+Interface: (String, Option<String>, String, Vec<(String, String)>) = {
+    <TypeIdent> ":=" <(<TypeIdent> ".")?> <TypeIdent>
+        "{" <Comma<TermAssign>> "}",
+    <name: TypeIdent> ":=" "interface" "{"
+        <items: Comma<TermAssign>> "}" => {
+            let role_name = name.clone();
+            (name, None, role_name, items)
+        },
+};
+
+TermAssign: (String, String) = {
+    <TermIdent> "=" <TermIdent>,
+    <x: TermIdent> => {
+        let xx = x.clone();
+        (x, xx)
+    },
 };
 
 
@@ -65,17 +78,17 @@ TableInstance: (String, String, Vec<(String, String)>) = {
 //  Algorithms
 //
 
-Initializer: (String, runtime::Algorithm) = {
-    <TermIdent> ":=" "initializer" <Algorithm>,
+Constructor: (String, ast::Algorithm) = {
+    <TermIdent> ":=" "ctor" <Algorithm>,
 };
 
-Action: (String, runtime::Algorithm) = {
-    <TermIdent> ":=" "action" <Algorithm>,
+Function: (String, ast::Algorithm) = {
+    <TermIdent> ":=" "fun" <Algorithm>,
 };
 
-Algorithm: runtime::Algorithm = {
+Algorithm: ast::Algorithm = {
     "(" <param_list: Comma<TermIdent>> ")" <steps: Block> => {
-        ast::convert_algorithm(ast::Algorithm { <> })
+        ast::Algorithm { <> }
     },
 };
 
@@ -92,7 +105,6 @@ Statement: ast::Statement = {
     "self" "." "data" "=" <Expression> ";" => {
         ast::Statement::State(<>)
     },
-    "cancel;" => ast::Statement::CancelWait,
 
     "while" <condition: Expression> <block: Block>
         => ast::Statement::WhileLoop { <> },
@@ -147,8 +159,18 @@ SimpleExpression: ast::Expression = {
     Number => ast::Expression::Const(<>),
     "self" => ast::Expression::SelfObject,
     "self" "." "data" => ast::Expression::SelfData,
-    <name: TypeIdent> "{" <fields: Comma<Assignment<Expression>>> "}"
+    "self" "." <name: Ident> "(" <args: Comma<Expression>> ")"
+        => ast::Expression::Method { names: vec!["self".into(), name], args },
+    <name: TypeIdent> "{" <fields: Comma<FieldAssign>> "}"
         => ast::Expression::Data { <> },
+};
+
+FieldAssign: (String, ast::Expression) = {
+    <TermIdent> "=" <Expression>,
+    <x: TermIdent> => {
+        let expr = ast::Expression::Var(x.clone());
+        (x, expr)
+    },
 };
 
 Comparison: ast::Expression = {
@@ -194,18 +216,11 @@ Number: f64 = {
 //  General Purpose Things
 //
 
-Dict<T>: Dict<T> = {
-    <Comma<Assignment<T>>> => <>.into_iter().collect()
-};
-
-Assignment<T>: (String, T) = {
-    <TermIdent> "=" <T>
-};
-
 Ident: String = { TermIdent, TypeIdent };
 
 TermIdent: String = {
     r"[a-z_][a-zA-Z0-9_]*" => <>.into(),
+    "data" => <>.into(),
 };
 
 TypeIdent: String = {

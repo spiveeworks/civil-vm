@@ -26,12 +26,18 @@ impl FlopInstance {
         root_table: String,
         init: String,
     ) {
-        let _root = runtime::execute_init(
+        let alg_name = item::get_algorithm_name(
+            game.types(),
+            &root_type,
+            &root_table,
+            &init,
+        ).clone();
+
+        let _root = runtime::execute_ctor_concrete(
             game,
 
             root_type,
-            root_table,
-            init,
+            alg_name,
             Vec::new(),
         );
 

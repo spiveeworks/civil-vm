@@ -25,11 +25,6 @@ pub enum Statement {
     Debug(String),
     DebugNums(Vec<Expression>),
     // TODO self.method() and Type.initializer stuff
-    GotoAlg {
-        table: TablePath,
-        alg_name: String,
-        args: Vec<Expression>,
-    },
     Evaluate {
         // multiple expressions all so that x, y = y, x is possible :P
         expressions: Vec<Expression>,
@@ -37,7 +32,7 @@ pub enum Statement {
     },
     State(Expression),
     Wait(Expression),
-    CancelWait,
+    Return(Vec<Expression>),
     Branch {
         condition: Expression,
         break_offset: usize,
@@ -91,160 +86,197 @@ pub enum Expression {
     Pow(Box<Expression>, Box<Expression>),
 }
 
-fn bind_args(
-    types: &Dict<item::ObjectType>,
-
-    type_name: &String,
-    table_name: &String,
-    init_name: &String,
-
-    args: Vec<data::Field>,
-) -> data::Data {
-    item::get_algorithm(
-        types,
-        type_name,
-        table_name,
-        init_name,
-    )   .param_list
-        .iter()
-        .cloned()
-        .zip(args)
-        .collect()
+impl Algorithm {
+    fn bind_args(self: &Self, args: Vec<data::Field>) -> data::Data {
+        self.param_list
+            .iter()
+            .cloned()
+            .zip(args)
+            .collect()
+    }
 }
 
-pub fn execute_init<G: Flop>(
+/// Executes a constructor on a fresh object and wrap in a vref
+pub fn execute_ctor_virtual<G: Flop>(
     game: &mut G,
     type_name: String,
-    table_name: String,
+    interface_name: String,
     init_name: String,
     args: Vec<data::Field>,
 ) -> data::ObjectRef {
-    let args = bind_args(
+    let init_name = item::get_algorithm_name(
         game.types(),
-
         &type_name,
-        &table_name,
+        &interface_name,
         &init_name,
+    ).clone();
+    let tref = execute_ctor_concrete(
+        game,
+        type_name,
+        init_name,
 
         args,
     );
 
-    let table = table_name.clone();
-    let data = data::ObjectData::new(type_name);
+    let table = interface_name;
+    let data = tref;
+    data::ObjectRef { data, table }
+}
 
-    execute_action(
+/// Executes a constructor on a fresh object
+pub fn execute_ctor_concrete<G: Flop>(
+    game: &mut G,
+    type_name: String,
+    init_name: String,
+    args: Vec<data::Field>,
+) -> data::Object {
+    let tref = data::ObjectData::new(type_name);
+
+    execute_algorithm(
         game,
-        Strong::clone(&data),
-        table_name,
+        Strong::clone(&tref),
         init_name,
 
-        Some(args),
-        0,
-        false,
+        ExecType::Ctor(args),
     );
 
-    data::ObjectRef { table, data }
+    tref
 }
 
-pub fn execute_action<G: Flop>(
+/// Executes a function on a vref
+pub fn execute_fun_virtual<G: Flop>(
     game: &mut G,
-    object: Strong<data::ObjectData>,
-    table_name: String,
-    action_name: String,
-
-    vars: Option<data::Data>,  // None to use object's state
-    pc: usize,
-    mut has_state: bool,
+    vref: data::ObjectRef,
+    alg_name: String,
+    args: Vec<data::Field>,
 ) -> Vec<data::Field> {
-    let vars = {
-        if let Some(vars) = vars {
-            vars
-        } else {
-            has_state = false;
-
-            let object = object.borrow_mut(game.totem());
-            object.event = None;
-
-            mem::replace(&mut object.data, Dict::new())
-        }
+    let alg_name = {
+        let (totem, types, _) = game.parts();
+        let type_name = &vref.data.borrow(totem).type_name;
+        item::get_algorithm_name(
+            types,
+            &type_name,
+            &vref.table,
+            &alg_name,
+        ).clone()
     };
+    execute_fun_concrete(
+        game,
+        vref.data,
+        alg_name,
 
-    let result = execute_algorithm(
+        args,
+    )
+}
+
+/// Executes a constructor on a fresh object
+pub fn execute_fun_concrete<G: Flop>(
+    game: &mut G,
+    tref: data::Object,
+    alg_name: String,
+    args: Vec<data::Field>,
+) -> Vec<data::Field> {
+    execute_algorithm(
+        game,
+        tref,
+        alg_name,
+
+        ExecType::Fun(args),
+    )
+}
+
+pub fn resume_algorithm<G: Flop>(
+    game: &mut G,
+    object: data::Object,
+    alg_name: String,
+    pc: usize,
+) {
+    execute_algorithm(
         game,
         object,
-        table_name,
-        action_name,
-
-        vars,
-        pc,
-        has_state,
+        alg_name,
+        ExecType::Resume(pc),
     );
-
-    if let AlgorithmResult::ExternContinuation {
-        object,
-        table_name,
-        action_name,
-        vars,
-        has_state,
-    } = result {
-        execute_action(
-            game,
-            object,
-            table_name,
-            action_name,
-
-            Some(vars),
-            0,
-            has_state,
-        )
-    } else if let AlgorithmResult::ReturnVals(vals) = result {
-        vals
-    } else {
-        Vec::new()
-    }
 }
 
-pub enum AlgorithmResult {
-    ExternContinuation {
-        object: data::Object,
-        table_name: String,
-        action_name: String,
-        vars: Dict<data::Field>,
-        has_state: bool,
-    },
-    ContinueLoop {
-        vars: Dict<data::Field>,
-    },
-    ReturnVals(Vec<data::Field>),
+enum ExecType {
+    Ctor(Vec<data::Field>),
+    Fun(Vec<data::Field>),
+    Resume(usize),
 }
 
-pub fn execute_algorithm<G: Flop>(
+fn execute_algorithm<G: Flop>(
     game: &mut G,
 
     object: Strong<data::ObjectData>,
-    table_name: String,
-    action_name: String,
+    algorithm_name: String,
 
-    mut vars: Dict<data::Field>,
-    mut pc: usize,
-    mut has_state: bool,
-) -> AlgorithmResult {
+    input: ExecType,
+) -> Vec<data::Field> {
     let mut result = None;
+    let mut pc = 0;
+    let mut has_state = false;
+    let mut vars;
 
     let type_name = {
         let object = object.borrow(game.totem());
         object.type_name.clone()
     };
 
-    let code = item::get_algorithm(
+
+    let alg = &*item::get_algorithm(
         game.types(),
         &type_name,
-        &table_name,
-        &action_name
-    ).steps.clone();
+        &algorithm_name
+    );
 
-    while pc < code.len() && result.is_none() {
-        match code[pc] {
+    if let ExecType::Fun(_) = input { has_state = true; }
+    match input {
+        ExecType::Fun(args) | ExecType::Ctor(args) => {
+            vars = alg.bind_args(args);
+        },
+        ExecType::Resume(pc_) => {
+            pc = pc_;
+            vars = {
+                let object = object.borrow_mut(game.totem());
+                object.event.take().unwrap();
+
+                mem::replace(&mut object.data, Dict::new())
+            };
+        },
+    }
+
+    let code = &alg.steps;
+    while pc < code.len() {
+        if let Statement::Wait(time) = &code[pc] {
+            let time_ = evaluate_expression(
+                game,
+                time,
+                &mut vars,
+                &object,
+            ).num();
+            let time = Time::try_from(time_)
+                .expect("Num Error");
+            let (totem, _, event_queue) = game.parts();
+            wait(
+                totem,
+                event_queue,
+
+                &object,
+
+                algorithm_name,
+                pc,
+
+                time,
+            );
+
+            break;
+        } else if result.is_some() {
+            break;
+        } else { match code[pc] {
+            Statement::Wait(_) => {
+                unreachable!();
+            },
             Statement::Debug(ref to_print) => {
                 println!("Debug: {}", to_print);
             },
@@ -261,75 +293,6 @@ pub fn execute_algorithm<G: Flop>(
                 }
                 println!("");
             },
-            Statement::GotoAlg {
-                ref table,
-                alg_name: ref new_action_name,
-                ref args,
-            } => {
-                pc += 1;
-                if let Some(&Statement::Wait(ref time)) = code.get(pc) {
-                    let time_ = evaluate_expression(
-                        game,
-                        time,
-                        &mut vars,
-                        &object,
-                    ).num();
-                    let time = Time::try_from(time_)
-                        .expect("Num Error");
-                    let (totem, _, event_queue) = game.parts();
-                    wait(
-                        totem,
-                        event_queue,
-
-                        &object,
-
-                        table_name.clone(),
-                        action_name,
-                        pc,
-
-                        time,
-                    );
-                }
-
-                let (new_object, new_table_name, is_initalizer) = match table {
-                    TablePath::Virtual(ref ent_name) => {
-                        let ent_ref = vars[ent_name].vref().clone();
-                        (ent_ref.data, ent_ref.table, false)
-                    },
-                    TablePath::Static(ref type_name, ref table_name) => {
-                        let ent = data::ObjectData::new(type_name.clone());
-                        (ent, table_name.clone(), true)
-                    },
-                };
-
-                let vals = evaluate_expressions(
-                    game,
-                    args,
-                    &mut vars,
-                    &object,
-                );
-
-                let (totem, types, _) = game.parts();
-                let new_vars = bind_args(
-                    types,
-
-                    &new_object.borrow(totem).type_name,
-                    &new_table_name,
-                    &new_action_name,
-
-                    vals,
-                );
-
-                result = Some(AlgorithmResult::ExternContinuation {
-                    object: new_object,
-                    table_name: new_table_name,
-                    action_name: new_action_name.clone(),
-                    vars: new_vars,
-                    has_state: !is_initalizer,
-                });
-
-                break;
-            },
             Statement::Evaluate {
                 ref results,
                 ref expressions,
@@ -345,10 +308,6 @@ pub fn execute_algorithm<G: Flop>(
                 }
             },
             Statement::State(ref state) => {
-                if has_state {
-                    panic!("Tried to overwrite state without cancelling");
-                }
-
                 let (state_name, data) = evaluate_expression(
                     game,
                     state,
@@ -357,47 +316,26 @@ pub fn execute_algorithm<G: Flop>(
                 ).unwrap_data();
 
                 let object = object.borrow_mut(game.totem());
+
+                let event = object.event.take();
+                if let Some(event::EventHandle(ref time, id)) = event {
+                    game.event_queue().cancel_event(time, id);
+                }
+
                 object.state_name = state_name;
                 object.data = data;
 
                 has_state = true;
             }
 
-            Statement::Wait(ref time) => {
-                let time_ = evaluate_expression(
+            Statement::Return(ref vals) => {
+                let vals = evaluate_expressions(
                     game,
-                    time,
+                    vals,
                     &mut vars,
                     &object,
-                ).num();
-                let time = Time::try_from(time_)
-                    .expect("Num Error");
-                let (totem, _, event_queue) = game.parts();
-                wait(
-                    totem,
-                    event_queue,
-
-                    &object,
-
-                    table_name,
-                    action_name,
-                    pc,
-
-                    time,
                 );
-
-                break;
-            },
-            Statement::CancelWait => {
-                let object = object.borrow_mut(game.totem());
-                let event = object.event.take();
-                if let Some(event::EventHandle(ref time, id)) = event {
-                    game.event_queue().cancel_event(time, id);
-                }
-
-                object.data = Dict::new();
-
-                has_state = false;
+                result = Some(vals);
             },
 
             Statement::Branch {
@@ -446,7 +384,7 @@ pub fn execute_algorithm<G: Flop>(
                 pc += break_offset;
                 continue;
             },
-        }
+        }}
 
         pc += 1;
     }
@@ -455,7 +393,7 @@ pub fn execute_algorithm<G: Flop>(
         panic!("Tried to exit without resetting state");
     }
 
-    result.unwrap_or_else(|| AlgorithmResult::ReturnVals(Vec::new()))
+    result.unwrap_or_else(|| Vec::new())
 }
 
 fn wait(
@@ -464,7 +402,6 @@ fn wait(
 
     object_: &data::Object,
 
-    table_name: String,
     action_name: String,
     mut pc: usize,
 
@@ -473,7 +410,7 @@ fn wait(
     let object = Strong::clone(object_);
     pc += 1;
 
-    let event = event::Event { object, table_name, action_name, pc };
+    let event = event::Event { object, action_name, pc };
 
     let absolute_time = event_queue.now() + time;
     let id = event_queue.enqueue_absolute(event, absolute_time);
@@ -549,7 +486,7 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 object,
             );
-            let result_ref = execute_init(
+            let vref = execute_ctor_virtual(
                 game,
                 type_name.clone(),
                 table_name.clone(),
@@ -557,7 +494,7 @@ fn evaluate_expression_into<G: Flop>(
                 args
             );
 
-            let result_term = data::Field::VRef(result_ref);
+            let result_term = data::Field::VRef(vref);
             result.push(result_term);
         },
         ExecObject {
@@ -571,49 +508,78 @@ fn evaluate_expression_into<G: Flop>(
                 vars,
                 &object,
             );
-            if let data::Field::Set(x) = vars.get_mut(object_name).unwrap() {
-                if action_name == "add" {
-                    assert!(args.len() == 1, "Set.add expects one arg");
-                    let key = args.pop().unwrap().unwrap_vref();
-                    x.insert(data::ObjectKey(key), ());
-                } else if action_name == "remove" {
-                    assert!(args.len() == 1, "Set.remove expects one arg");
-                    let key = args.pop().unwrap().unwrap_vref();
-                    x.remove(&data::ObjectKey(key));
-                } else if action_name == "next" {
-                    assert!(args.len() == 0, "Set.next expects no args");
-                    let (val, ()) = data::set_pop(x)
-                        .expect("Cannot remove from empty set");
-                    result.push(data::Field::VRef(val));
-                } else if action_name == "not_empty" {
-                    // TODO !set.is_empty()
-                    assert!(args.len() == 0, "Set.not_empty expects no args");
-                    result.push(data::Field::from_bool(!x.is_empty()));
+
+            use data::Field::*;
+            if object_name != "self" {
+                if !vars.contains_key(object_name) {
+                    let type_name = object_name;
+
+                    let tref = execute_ctor_concrete(
+                        game,
+                        type_name.clone(),
+                        action_name.clone(),
+                        args
+                    );
+
+                    let result_term = data::Field::TRef(tref);
+                    result.push(result_term);
+                    return;
                 }
-                return;
+                if let Set(x) = vars.get_mut(object_name).unwrap() {
+                    if action_name == "add" {
+                        assert!(args.len() == 1, "Set.add expects one arg");
+                        let key = args.pop().unwrap().unwrap_vref();
+                        x.insert(data::ObjectKey(key), ());
+                    } else if action_name == "remove" {
+                        assert!(args.len() == 1, "Set.remove expects one arg");
+                        let key = args.pop().unwrap().unwrap_vref();
+                        x.remove(&data::ObjectKey(key));
+                    } else if action_name == "next" {
+                        assert!(args.len() == 0, "Set.next expects no args");
+                        let (val, ()) = data::set_pop(x)
+                            .expect("Cannot remove from empty set");
+                        result.push(data::Field::VRef(val));
+                    } else if action_name == "not_empty" {
+                        // TODO !set.is_empty()
+                        assert!(args.len() == 0, "Set.not_empty expects no args");
+                        result.push(data::Field::from_bool(!x.is_empty()));
+                    }
+                    // return so that we can continue in a scope where vars still
+                    // exists
+                    return;
+                }
             }
-            let vref = vars[object_name].clone().unwrap_vref();
-            let args = {
-                let type_name = &vref.data.borrow(game.totem()).type_name;
-                bind_args(
-                    game.types(),
 
-                    type_name,
-                    &vref.table,
-                    action_name,
 
+            let result_vals;
+            if object_name == "self" {
+                result_vals = execute_fun_concrete(
+                    game,
+                    object.clone(),
+                    action_name.clone(),
                     args,
-                )
-            };
-            let result_vals = execute_action(
-                game,
-                vref.data,
-                vref.table,
-                action_name.clone(),
-                Some(args),
-                0,
-                true,
-            );
+                );
+            } else { match vars[object_name].clone() {
+                TRef(tref) => {
+                    result_vals = execute_fun_concrete(
+                        game,
+                        tref,
+                        action_name.clone(),
+                        args,
+                    );
+                },
+                VRef(vref) => {
+                    result_vals = execute_fun_virtual(
+                        game,
+                        vref,
+                        action_name.clone(),
+                        args,
+                    )
+                },
+                _ => {
+                    panic!("Method called on simple data");
+                },
+            }}
 
             result.extend(result_vals);
         },

@@ -17,8 +17,6 @@ pub enum Statement {
         results: Vec<String>,
     },
     State(Expression),
-    // TODO just overwrite state instead of explicitly cancelling?
-    CancelWait,
     WhileLoop {
         condition: Expression,
         block: Vec<Statement>,
@@ -107,7 +105,6 @@ fn convert_statement(step: Statement, result: &mut Vec<runtime::Statement>) {
             }
         },
         State(state) => runtime::Statement::State(convert_expression(state)),
-        CancelWait => runtime::Statement::CancelWait,
         WhileLoop {
             condition,
             block,
@@ -229,6 +226,10 @@ fn convert_simple_statement(names: &mut Vec<String>, args: &mut Vec<Expression>)
             assert!(args.len() == 1, "wait expects 1 argument");
             let arg = args.pop().unwrap();
             return Some(runtime::Statement::Wait(convert_expression(arg)));
+        } else if names[0] == "return" {
+            let args = ::std::mem::replace(args, Vec::new());
+            let args = convert_expressions(args);
+            return Some(runtime::Statement::Return(args));
         }
     }
     None
