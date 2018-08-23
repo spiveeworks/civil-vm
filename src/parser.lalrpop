@@ -136,7 +136,7 @@ IfBranch: (ast::Expression, Vec<ast::Statement>) = { "if" <Expression> <Block> }
 ElseBranch: Vec<ast::Statement> = { "else" <Block> };
 
 DefaultArm: Vec<ast::Statement> = {
-    "_" "=>" <Block>
+    "_" "=>" <Block> ","?
 };
 Arm: (String, Vec<String>, Vec<ast::Statement>) = {
     <TypeIdent> "{" <Comma<TermIdent>> "}" "=>" <Block>
