@@ -23,16 +23,8 @@ impl FlopInstance {
         game: &mut G,
 
         root_type: String,
-        root_table: String,
-        init: String,
+        alg_name: String,
     ) {
-        let alg_name = item::get_algorithm_name(
-            game.types(),
-            &root_type,
-            &root_table,
-            &init,
-        ).clone();
-
         let _root = runtime::execute_ctor_concrete(
             game,
 

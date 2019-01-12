@@ -1,10 +1,9 @@
-Looper := interface { run }
-
-run := ctor() {
-    while True {} {
-        self.data = Wait {};
-        wait(1);
-        BANG;
-    }
+class Looper {
+	run := ctor() {
+		while True {} {
+			self.data = Wait {};
+			wait(1);
+			BANG;
+		}
+	}
 }
-

@@ -19,7 +19,6 @@ fn main() {
         &mut game,
 
         "Root".into(),
-        "Root".into(),
         "init".into(),
     );
 }

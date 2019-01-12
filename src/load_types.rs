@@ -6,7 +6,7 @@ use item;
 use parser;
 
 pub fn get_types(dirpath: &str) -> Dict<item::ObjectType> {
-    let parser = parser::TypeParser::new();
+    let parser = parser::ClassParser::new();
     let paths = fs::read_dir(dirpath)
         .expect("Failed to open directory");
 
@@ -21,7 +21,14 @@ pub fn get_types(dirpath: &str) -> Dict<item::ObjectType> {
         let mut content = String::new();
         file.read_to_string(&mut content).expect("Failed to read file");
 
-        let parsed = parser.parse(&content).unwrap();
+        let (iname, parsed) = parser.parse(&content).unwrap();
+        if iname != file_name {
+            panic!(
+                "Class name did not match file name: '{}' in '{}'",
+                iname,
+                file_name,
+            );
+        }
         types.insert(file_name, parsed);
     }
 

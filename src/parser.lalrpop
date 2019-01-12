@@ -9,8 +9,9 @@ grammar;
 //  Items
 //
 
-pub Type: item::ObjectType = {
-    <Item*> => item::collect(<>),
+pub Class: (String, item::ObjectType) = {
+    "class" <name: TypeIdent> "{" <items: Item*> "}" =>
+        (name, item::collect(items)),
 };
 
 Item: (String, item::Item) = {

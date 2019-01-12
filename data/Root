@@ -1,7 +1,6 @@
-Root := interface { init }
-
-init := ctor() {
-    self.data = Null {};
-    looper = Looper.Looper.run();
+class Root {
+	init := ctor() {
+		self.data = Null {};
+		looper = Looper.run();
+	}
 }
-
