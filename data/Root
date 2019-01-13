@@ -1,5 +1,5 @@
 class Root {
-	init := ctor() {
+	ctor init() {
 		self.data = Null {};
 		looper = Looper.run();
 	}

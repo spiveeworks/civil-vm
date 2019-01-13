@@ -1,5 +1,5 @@
 class Looper {
-	run := ctor() {
+	ctor run() {
 		while True {} {
 			self.data = Wait {};
 			wait(1);
