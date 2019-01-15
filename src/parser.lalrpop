@@ -9,8 +9,9 @@ grammar;
 //  Items
 //
 
-pub Type: item::ObjectType = {
-    <Item*> => item::collect(<>),
+pub Class: (String, item::ObjectType) = {
+    "class" <name: TypeIdent> "{" <items: Item*> "}" =>
+        (name, item::collect(items)),
 };
 
 Item: (String, item::Item) = {
@@ -36,7 +37,7 @@ Item: (String, item::Item) = {
 //
 
 Role: (String, Dict<item::RoleTerm>) = {
-    <name: TypeIdent> ":=" "role" "{" <terms: Comma<RoleTerm>> "}" =>
+    "role" <name: TypeIdent> "{" <terms: Comma<RoleTerm>> "}" =>
         (name, terms.into_iter().collect()),
 };
 
@@ -56,9 +57,9 @@ DataType: item::FieldType = {
 };
 
 Interface: (String, Option<String>, String, Vec<(String, String)>) = {
-    <TypeIdent> ":=" <(<TypeIdent> ".")?> <TypeIdent>
-        "{" <Comma<TermAssign>> "}",
-    <name: TypeIdent> ":=" "interface" "{"
+    <ctx: (<TypeIdent> ".")?> <role_name: TypeIdent> <name: TypeIdent>
+        "{" <items: Comma<TermAssign>> "}" => (name, ctx, role_name, items),
+    "interface" <name: TypeIdent> "{"
         <items: Comma<TermAssign>> "}" => {
             let role_name = name.clone();
             (name, None, role_name, items)
@@ -79,11 +80,11 @@ TermAssign: (String, String) = {
 //
 
 Constructor: (String, ast::Algorithm) = {
-    <TermIdent> ":=" "ctor" <Algorithm>,
+    "ctor" <TermIdent> <Algorithm>,
 };
 
 Function: (String, ast::Algorithm) = {
-    <TermIdent> ":=" "fun" <Algorithm>,
+    "fun" <TermIdent> <Algorithm>,
 };
 
 Algorithm: ast::Algorithm = {
@@ -136,7 +137,7 @@ IfBranch: (ast::Expression, Vec<ast::Statement>) = { "if" <Expression> <Block> }
 ElseBranch: Vec<ast::Statement> = { "else" <Block> };
 
 DefaultArm: Vec<ast::Statement> = {
-    "_" "=>" <Block>
+    "_" "=>" <Block> ","?
 };
 Arm: (String, Vec<String>, Vec<ast::Statement>) = {
     <TypeIdent> "{" <Comma<TermIdent>> "}" "=>" <Block>

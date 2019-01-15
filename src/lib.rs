@@ -1,3 +1,5 @@
+#[macro_use] extern crate lalrpop_util;
+
 extern crate sulphate_lib;
 extern crate totem_cell;
 
@@ -7,7 +9,7 @@ pub mod event;
 pub mod instance;
 pub mod item;
 pub mod load_types;
-pub mod parser;
+lalrpop_mod!(pub parser);
 pub mod runtime;
 
 pub mod prelude {
